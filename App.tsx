@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Palette, Percent, 
     Check, Edit2, Trash2, Plus, Settings, Sun, Moon, Smartphone, Monitor, ArrowLeft, 
-    ChevronRight, Scissors, Copy, Clipboard 
+    ChevronRight, Share, Info, Github
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { toPng } from 'html-to-image';
 
 import { Button } from './components/Button';
 import { ThemeOption } from './components/ThemeOption';
-import { ModeToggle } from './components/ModeToggle';
 import { ActiveLine } from './components/ActiveLine';
 import { CommittedLine } from './components/CommittedLine';
 import { formatNumber, evaluateExpression, copyToClipboard, triggerHaptic } from './utils';
@@ -28,8 +28,7 @@ const App = () => {
 
     const [taxRate, setTaxRate] = useState(18); 
     const [availableRates, setAvailableRates] = useState([5, 12, 18, 28]); 
-    const [isGstMode, setIsGstMode] = useState(true);
-
+    
     const [theme, setTheme] = useState<string>('light'); 
     const [systemTheme, setSystemTheme] = useState<ThemeName>('light');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -168,7 +167,7 @@ const App = () => {
             id: Date.now(),
             expression: currentInput, 
             result: finalVal,         
-            mode: isGstMode ? 'GST' : 'TAX',
+            mode: 'GST',
             type: isAdd ? 'add' : 'remove',
             rate: taxRate,
             details: { base: baseVal, rate: taxRate, taxAmt: taxAmount }
@@ -206,16 +205,6 @@ const App = () => {
             case 'TAX-': handleTaxCalculation(false); break;
             default: insertAtCursor(value);
         }
-    };
-
-    const handleCopy = () => copyToClipboard(formatNumber(grandTotal));
-    const handleCut = () => { handleCopy(); updateCurrentPage([]); setCurrentInput(''); setActiveItemId(null); };
-    const handlePaste = async () => {
-        if (inputRef.current) inputRef.current.focus();
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text && !isNaN(parseFloat(text))) insertAtCursor(text);
-        } catch (err) { console.error(err); }
     };
 
     const onTouchEnd = () => {
@@ -294,6 +283,35 @@ const App = () => {
         return activeThemeName === 'black' ? 'bg-black' : 'bg-slate-800';
     };
 
+    const handleShare = async () => {
+        if (screenshotRef.current) {
+            triggerHaptic();
+            try {
+                // Temporarily make background explicit for screenshot
+                const dataUrl = await toPng(screenshotRef.current, { 
+                    cacheBust: true, 
+                    backgroundColor: activeThemeName === 'light' ? '#ffffff' : activeThemeName === 'black' ? '#000000' : '#1e293b'
+                });
+                const blob = await (await fetch(dataUrl)).blob();
+                const file = new File([blob], "ganaka_screenshot.png", { type: "image/png" });
+
+                if (navigator.share) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'GANAKA Calculation',
+                    });
+                } else {
+                    const link = document.createElement('a');
+                    link.download = 'ganaka_screenshot.png';
+                    link.href = dataUrl;
+                    link.click();
+                }
+            } catch (err) {
+                console.error('Share failed', err);
+            }
+        }
+    };
+
     return (
         <div className={`min-h-screen flex items-center justify-center sm:p-4 font-sans transition-colors duration-300 ${themeColors.bg}`}>
             <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
@@ -306,22 +324,25 @@ const App = () => {
                         <div className={`relative w-80 h-full shadow-2xl p-6 flex flex-col animate-in slide-in-from-left duration-200 ${themeColors.menuBg} ${themeColors.text}`}>
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-2xl font-bold">Menu</h2>
-                                <button onClick={() => { triggerHaptic(); setIsMenuOpen(false); }} className="p-2 rounded-full hover:opacity-80"><X size={24} /></button>
+                                <button onClick={() => { triggerHaptic(); setIsMenuOpen(false); }} className="p-2 rounded-full hover:opacity-80 outline-none"><X size={24} /></button>
                             </div>
                             <div className="flex-1 overflow-y-auto no-scrollbar">
                                 {menuView === 'main' && (
                                     <div className="space-y-2">
-                                        <button onClick={() => { triggerHaptic(); setMenuView('themes'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors ${themeColors.text} ${themeColors.menuItemHover}`}>
+                                        <button onClick={() => { triggerHaptic(); setMenuView('themes'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-3"><Palette size={22} /> Themes</div><ChevronRight size={20} className="opacity-50" />
                                         </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('taxRates'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors ${themeColors.text} ${themeColors.menuItemHover}`}>
+                                        <button onClick={() => { triggerHaptic(); setMenuView('taxRates'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-3"><Percent size={22} /> Tax Rates</div><ChevronRight size={20} className="opacity-50" />
+                                        </button>
+                                        <button onClick={() => { triggerHaptic(); setMenuView('about'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
+                                            <div className="flex items-center gap-3"><Info size={22} /> About</div><ChevronRight size={20} className="opacity-50" />
                                         </button>
                                     </div>
                                 )}
                                 {menuView === 'themes' && (
                                     <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
+                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
                                         <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Select Theme</h3>
                                         <div className="space-y-3">
                                             {['light', 'dark', 'black', 'system'].map(t => (
@@ -332,7 +353,7 @@ const App = () => {
                                 )}
                                 {menuView === 'taxRates' && (
                                     <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
+                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
                                         <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Manage Tax Rates</h3>
                                         <div className="space-y-3 mb-6">
                                             {availableRates.map((rate, index) => (
@@ -342,9 +363,9 @@ const App = () => {
                                                     ) : <span className="font-bold text-lg">{rate}%</span>}
                                                     <div className="flex items-center gap-2">
                                                         {editingRateIndex === index ? (
-                                                            <button onClick={() => handleSaveEditedRate(index)} className="p-2 text-green-500 hover:bg-green-50 rounded-full"><Check size={18}/></button>
-                                                        ) : <button onClick={() => { triggerHaptic(); setEditingRateIndex(index); }} className={`p-2 hover:opacity-70 rounded-full ${themeColors.text}`}><Edit2 size={16}/></button>}
-                                                        <button onClick={() => handleDeleteRate(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><Trash2 size={16}/></button>
+                                                            <button onClick={() => handleSaveEditedRate(index)} className="p-2 text-green-500 hover:bg-green-50 rounded-full outline-none"><Check size={18}/></button>
+                                                        ) : <button onClick={() => { triggerHaptic(); setEditingRateIndex(index); }} className={`p-2 hover:opacity-70 rounded-full outline-none ${themeColors.text}`}><Edit2 size={16}/></button>}
+                                                        <button onClick={() => handleDeleteRate(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full outline-none"><Trash2 size={16}/></button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -352,13 +373,33 @@ const App = () => {
                                         <div className={`p-4 rounded-xl border-2 border-dashed ${themeColors.itemBorder} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-2">
                                                 <input type="number" value={newRateInput} onChange={(e) => setNewRateInput(e.target.value)} placeholder="Add Rate %" className={`flex-1 bg-transparent outline-none font-medium ${themeColors.text}`} onKeyDown={(e) => e.key === 'Enter' && handleAddRate()} />
-                                                <button onClick={handleAddRate} disabled={!newRateInput} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"><Plus size={20} /></button>
+                                                <button onClick={handleAddRate} disabled={!newRateInput} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 outline-none"><Plus size={20} /></button>
                                             </div>
                                         </div>
                                     </div>
                                 )}
+                                {menuView === 'about' && (
+                                    <div className="space-y-4 animate-in slide-in-from-right duration-200">
+                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
+                                        <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>About</h3>
+                                        <div className="flex flex-col items-center text-center space-y-4 py-8">
+                                            <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">G</div>
+                                            <h2 className="text-2xl font-bold">GANAKA</h2>
+                                            <p className={`opacity-70 ${themeColors.subText}`}>
+                                                A powerful, intuitive calculator designed for rapid GST calculations and multi-page management.
+                                            </p>
+                                            <div className="pt-6 w-full">
+                                                <a href="https://github.com/" target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-2 p-4 rounded-xl w-full font-bold transition-colors border ${themeColors.border} ${themeColors.menuItemHover}`}>
+                                                    <Github size={20} />
+                                                    Visit GitHub
+                                                </a>
+                                            </div>
+                                            <p className="text-xs opacity-40 pt-8">Version 1.6.0</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className={`mt-auto pt-6 border-t ${themeColors.border}`}><p className="text-xs text-center opacity-50">GANAKA v1.6</p></div>
+                            <div className={`mt-auto pt-6 border-t ${themeColors.border}`}><p className="text-xs text-center opacity-50">Designed with ❤️</p></div>
                         </div>
                     </div>
                 )}
@@ -366,10 +407,10 @@ const App = () => {
                 {isCustomTaxModalOpen && (
                     <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
                         <div className={`${themeColors.appBg} ${themeColors.text} rounded-2xl p-6 w-full shadow-2xl animate-in fade-in zoom-in duration-200`}>
-                            <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">Select {isGstMode ? 'GST' : 'Tax'} Rate</h3><button onClick={() => { triggerHaptic(); setIsCustomTaxModalOpen(false); }} className="opacity-60 hover:opacity-100"><X size={24} /></button></div>
+                            <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">Select GST Rate</h3><button onClick={() => { triggerHaptic(); setIsCustomTaxModalOpen(false); }} className="opacity-60 hover:opacity-100 outline-none"><X size={24} /></button></div>
                             <div className="grid grid-cols-4 gap-2 mb-6">
                                 {availableRates.map(rate => (
-                                    <button key={rate} onClick={() => { triggerHaptic(); setTaxRate(rate); setIsCustomTaxModalOpen(false); }} className={`p-3 rounded-xl font-bold border-2 transition-all ${taxRate === rate ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}>{rate}%</button>
+                                    <button key={rate} onClick={() => { triggerHaptic(); setTaxRate(rate); setIsCustomTaxModalOpen(false); }} className={`p-3 rounded-xl font-bold border-2 transition-all outline-none ${taxRate === rate ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}>{rate}%</button>
                                 ))}
                             </div>
                             <div className="relative mb-6">
@@ -377,8 +418,8 @@ const App = () => {
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50 font-bold text-xl">%</span>
                             </div>
                             <div className="space-y-3">
-                                <button onClick={() => { triggerHaptic(); const r = parseFloat(tempCustomRate); if (!isNaN(r) && r >= 0) { setTaxRate(r); setIsCustomTaxModalOpen(false); }}} className={`w-full p-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors ${activeThemeName === 'light' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-700 text-white hover:bg-gray-600'}`}><Edit2 size={18} /> Use Custom Rate</button>
-                                <button onClick={() => { triggerHaptic(); const r = parseFloat(tempCustomRate); if (!isNaN(r) && r >= 0) { setAvailableRates(prev => (!prev.includes(r) ? [...prev, r].sort((a,b)=>a-b) : prev)); setTaxRate(r); setIsCustomTaxModalOpen(false); }}} className="w-full p-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-colors"><Plus size={18} /> Add to Quick Rates</button>
+                                <button onClick={() => { triggerHaptic(); const r = parseFloat(tempCustomRate); if (!isNaN(r) && r >= 0) { setTaxRate(r); setIsCustomTaxModalOpen(false); }}} className={`w-full p-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors outline-none ${activeThemeName === 'light' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-700 text-white hover:bg-gray-600'}`}><Edit2 size={18} /> Use Custom Rate</button>
+                                <button onClick={() => { triggerHaptic(); const r = parseFloat(tempCustomRate); if (!isNaN(r) && r >= 0) { setAvailableRates(prev => (!prev.includes(r) ? [...prev, r].sort((a,b)=>a-b) : prev)); setTaxRate(r); setIsCustomTaxModalOpen(false); }}} className="w-full p-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-colors outline-none"><Plus size={18} /> Add to Quick Rates</button>
                             </div>
                         </div>
                     </div>
@@ -388,17 +429,22 @@ const App = () => {
                       <div className="flex items-center gap-1">
                             <button 
                                 onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} 
-                                className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-95`}
+                                className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-95 outline-none focus:outline-none`}
                             >
-                                <Settings size={20} strokeWidth={2} className="mb-0.5" />
-                                <span className="text-[9px] font-extrabold leading-none tracking-wide opacity-80">MENU</span>
+                                <Settings size={24} strokeWidth={2} />
                             </button>
                       </div>
                       <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
                           <h1 className="font-bold text-xl tracking-tight">GANAKA</h1>
                       </div>
                       <div className="flex items-center">
-                          <ModeToggle isGstMode={isGstMode} setMode={setIsGstMode} themeColors={themeColors} />
+                           <button 
+                                onClick={handleShare}
+                                className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-95 outline-none focus:outline-none`}
+                                title="Share"
+                           >
+                                <Share size={24} strokeWidth={2} />
+                           </button>
                       </div>
                 </div>
 
@@ -407,7 +453,7 @@ const App = () => {
                         <button 
                             key={pageIndex} 
                             onClick={() => { triggerHaptic(); setActiveItemId(null); setCurrentInput(''); setCurrentPage(pageIndex); }} 
-                            className={`flex-1 py-3 text-sm font-bold transition-colors relative ${currentPage === pageIndex ? themeColors.tabActive : themeColors.tabInactive}`}
+                            className={`flex-1 py-3 text-sm font-bold transition-colors relative outline-none ${currentPage === pageIndex ? themeColors.tabActive : themeColors.tabInactive}`}
                         >
                             Page {pageIndex + 1}
                             {currentPage === pageIndex && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />}
@@ -428,8 +474,7 @@ const App = () => {
                         {activeItemId === null && <ActiveLine currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} />}
                         {[...Array(emptyLines)].map((_, i) => (
                             <div key={`empty-${i}`} className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-3 px-2 opacity-10`}>
-                                <span className="h-6 w-1/2 bg-current rounded animate-pulse"></span>
-                                <span className="h-6 w-12 bg-current rounded animate-pulse"></span>
+                                <div className="h-6 w-full" />
                             </div>
                         ))}
                         <div ref={listEndRef} />
@@ -449,32 +494,22 @@ const App = () => {
                     <Button icon={ChevronLeft} label={<span className="text-xs font-bold mt-0.5">DIGIT</span>} onClick={() => handleInput('DELETE')} className="bg-rose-100 text-rose-700 hover:bg-rose-200" />
                     <Button icon={CornerDownLeft} label={<span className="text-xs font-bold mt-0.5">ENTER</span>} onClick={() => handleInput('NEXT_LINE')} className="bg-indigo-200 text-indigo-700 hover:bg-indigo-300" />
 
-                    {isGstMode ? (
-                        <>
-                            <Button 
-                                label={
-                                    <div className="flex flex-col items-center justify-center w-full">
-                                        <div className="flex items-center justify-center h-6 gap-1">
-                                            <ChevronLeft size={16} strokeWidth={3} className="opacity-40" />
-                                            <span className="text-lg font-bold leading-none pt-0.5">{taxRate}%</span>
-                                            <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
-                                        </div>
-                                        <span className="text-xs font-bold mt-0.5">RATE</span>
-                                    </div>
-                                } 
-                                onPointerDown={handleTaxButtonDown} onPointerUp={handleTaxButtonUp} onClick={handleTaxButtonClick} 
-                                className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-bold border-2 border-indigo-200 shadow-sm" 
-                            />
-                            <Button label={'GST+'} onClick={() => handleInput('TAX+')} className="bg-green-100 text-green-700 hover:bg-green-200 text-sm font-bold" />
-                            <Button label={'GST-'} onClick={() => handleInput('TAX-')} className="bg-red-50 text-red-700 hover:bg-red-100 text-sm font-bold" />
-                        </>
-                    ) : (
-                        <>
-                            <Button icon={Scissors} onClick={handleCut} className="bg-orange-100 text-orange-700 hover:bg-orange-200" />
-                            <Button icon={Copy} onClick={handleCopy} className="bg-blue-100 text-blue-700 hover:bg-blue-200" />
-                            <Button icon={Clipboard} onClick={handlePaste} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200" />
-                        </>
-                    )}
+                    <Button 
+                        label={
+                            <div className="flex flex-col items-center justify-center w-full">
+                                <div className="flex items-center justify-center h-6 gap-1">
+                                    <ChevronLeft size={16} strokeWidth={3} className="opacity-40" />
+                                    <span className="text-lg font-bold leading-none pt-0.5">{taxRate}%</span>
+                                    <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
+                                </div>
+                                <span className="text-xs font-bold mt-0.5">RATE</span>
+                            </div>
+                        } 
+                        onPointerDown={handleTaxButtonDown} onPointerUp={handleTaxButtonUp} onClick={handleTaxButtonClick} 
+                        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-bold border-2 border-indigo-200 shadow-sm" 
+                    />
+                    <Button label={'GST+'} onClick={() => handleInput('TAX+')} className="bg-green-100 text-green-700 hover:bg-green-200 text-sm font-bold" />
+                    <Button label={'GST-'} onClick={() => handleInput('TAX-')} className="bg-red-50 text-red-700 hover:bg-red-100 text-sm font-bold" />
 
                     <Button label="%" onClick={() => handleInput('%')} className="bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200 font-bold" />
                     <Button label="7" onClick={() => handleInput('7')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800" />
@@ -489,9 +524,9 @@ const App = () => {
                     <Button label="2" onClick={() => handleInput('2')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800" />
                     <Button label="3" onClick={() => handleInput('3')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800" />
                     <Button label="-" onClick={() => handleInput('-')} className="bg-sky-100 text-sky-700 text-2xl" />
-                    <Button label="( )" onClick={() => handleInput('()')} className="bg-cyan-100 text-cyan-700 hover:bg-cyan-200 font-bold" />
+                    <Button label="( )" onClick={() => handleInput('()')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800 font-bold" />
                     <Button label="0" onClick={() => handleInput('0')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800" />
-                    <Button label="." onClick={() => handleInput('.')} className="bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold text-xl" />
+                    <Button label="." onClick={() => handleInput('.')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-800 font-bold text-xl" />
                     <Button label="+" onClick={() => handleInput('+')} className="bg-teal-100 text-teal-700 text-2xl" />
                 </div>
             </div>

@@ -2,12 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GANAKA</title>
+    <meta name="description" content="A powerful multi-tab calculator with specialized GST/Tax functions.">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GANAKA">
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.svg">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        * { 
+            -webkit-tap-highlight-color: transparent !important; 
+            -webkit-touch-callout: none;
+        }
+        button:focus { outline: none !important; }
+        input:focus { outline: none !important; }
     </style>
 <script type="importmap">
 {
@@ -16,13 +32,13 @@
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "html-to-image": "https://esm.sh/html-to-image@1.11.11"
   }
 }
 </script>
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
