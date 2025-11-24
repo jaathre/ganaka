@@ -48,7 +48,7 @@ const App = () => {
     const [theme, setTheme] = useState<string>('light'); 
     const [systemTheme, setSystemTheme] = useState<ThemeName>('light');
     const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>('auto');
-    const [numberFormat, setNumberFormat] = useState<NumberFormat>('NONE');
+    const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN');
     const [showLabels, setShowLabels] = useState(false);
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -73,6 +73,12 @@ const App = () => {
     const emptyLines = Math.max(0, 3 - billItems.length - (activeItemId === null ? 1 : 0)); 
     
     const currentPageColor = PAGE_COLORS[currentPage % PAGE_COLORS.length];
+    // Helper to get background color class from text color class for indicators
+    const getCurrentPageBgColor = (idx: number) => {
+        const colorClass = PAGE_COLORS[idx % PAGE_COLORS.length];
+        // Simple heuristic: replace 'text-' with 'bg-'
+        return colorClass.split(' ')[0].replace('text-', 'bg-');
+    };
 
     useEffect(() => {
         try {
@@ -230,14 +236,18 @@ const App = () => {
     const onTouchEnd = () => {
         if (!touchStart || !touchEnd) return;
         const distance = touchStart - touchEnd;
+        // Swipe Left -> Next Page
         if (distance > 50 && currentPage < pages.length - 1) { 
             triggerHaptic();
             setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c + 1); 
         }
+        // Swipe Right -> Prev Page
         else if (distance < -50 && currentPage > 0) { 
             triggerHaptic();
             setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c - 1); 
         }
+        setTouchStart(null);
+        setTouchEnd(null);
     };
 
     const handleTaxButtonClick = () => {
@@ -513,9 +523,34 @@ const App = () => {
                     </div>
                 )}
 
-                <div className={`flex-1 flex flex-col overflow-hidden relative transition-colors duration-300 p-2 sm:p-4 pb-0 sm:pb-0`}>
+                <div className={`flex-1 flex flex-col overflow-hidden relative transition-colors duration-300 p-3 pb-0`}>
                     
-                    <div className={`flex flex-col flex-1 border-[3px] rounded-t-2xl overflow-hidden shadow-sm ${themeColors.displayBorder} ${themeColors.appBg}`}>
+                    {/* Unified Display Container */}
+                    <div className={`flex flex-col flex-1 border-[3px] rounded-2xl overflow-hidden shadow-sm ${themeColors.displayBorder} ${themeColors.appBg}`}>
+                        
+                        {/* Top: Pages Row */}
+                        <div className={`flex items-center justify-between w-full overflow-x-auto no-scrollbar gap-2 p-2 border-b ${themeColors.border} ${themeColors.headerBg} min-h-[52px]`}>
+                             {pages.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        setActiveItemId(null);
+                                        setCurrentInput('');
+                                        setCurrentPage(idx);
+                                    }}
+                                    className={`flex items-center justify-center min-w-[36px] h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
+                                        currentPage === idx 
+                                        ? `${getCurrentPageBgColor(idx)} text-white shadow-md scale-105` 
+                                        : `bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600`
+                                    }`}
+                                >
+                                    {idx + 1}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Middle: Scrollable List */}
                         <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar`} 
                              onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
                              onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
@@ -533,31 +568,11 @@ const App = () => {
                             ))}
                             <div ref={listEndRef} />
                         </div>
-                    </div>
-                    
-                    <div className={`${themeColors.totalBarBg} ${themeColors.text} border-[3px] border-t-0 rounded-b-2xl py-1.5 px-3 z-10 shadow-sm transition-colors duration-300 ${themeColors.displayBorder}`}>
-                        <div className="grid grid-cols-4 gap-2">
-                            <div className="col-span-1 flex items-center justify-between">
-                                <button 
-                                    onClick={() => { if (currentPage > 0) { triggerHaptic(); setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c - 1); }}}
-                                    disabled={currentPage === 0}
-                                    className={`p-1 rounded-full ${currentPage === 0 ? 'opacity-20' : 'opacity-70 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'} outline-none`}
-                                >
-                                    <ChevronLeft size={20} strokeWidth={2.5} />
-                                </button>
-                                <span className="text-lg font-bold w-4 text-center">{currentPage + 1}</span>
-                                <button 
-                                    onClick={() => { if (currentPage < pages.length - 1) { triggerHaptic(); setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c + 1); }}}
-                                    disabled={currentPage === pages.length - 1}
-                                    className={`p-1 rounded-full ${currentPage === pages.length - 1 ? 'opacity-20' : 'opacity-70 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'} outline-none`}
-                                >
-                                    <ChevronRight size={20} strokeWidth={2.5} />
-                                </button>
-                            </div>
-                            <div className="col-span-3 flex items-center justify-between pl-2">
-                                <span className={`text-xl font-bold uppercase tracking-wider opacity-100 ${currentPageColor}`}>TOTAL =</span>
-                                <span className={`text-2xl font-bold ${currentPageColor}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
-                            </div>
+                        
+                        {/* Bottom: Total Bar */}
+                        <div className={`flex items-center justify-between p-3 border-t ${themeColors.border} ${themeColors.totalBarBg} h-14 z-10`}>
+                            <span className={`text-xl font-bold uppercase tracking-wider ${currentPageColor}`}>TOTAL =</span>
+                            <span className={`text-2xl font-bold ${currentPageColor}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
                         </div>
                     </div>
                 </div>
