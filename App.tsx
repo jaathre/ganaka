@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Palette, Percent, 
@@ -19,70 +18,99 @@ import { BillItem, ThemeColors, ThemeName, DecimalConfig, NumberFormat } from '.
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-// Distinct colors for each page to help distinguish them visually
+// Distinct colors for each page
 const PAGE_COLORS = [
     'text-blue-600 dark:text-blue-400',
     'text-emerald-600 dark:text-emerald-400',
     'text-violet-600 dark:text-violet-400',
     'text-amber-600 dark:text-amber-400',
-    'text-rose-600 dark:text-rose-400',
-    'text-cyan-600 dark:text-cyan-400',
-    'text-fuchsia-600 dark:text-fuchsia-400',
-    'text-lime-600 dark:text-lime-400',
-    'text-indigo-600 dark:text-indigo-400',
 ];
 
+const THEME_COLORS: Record<string, ThemeColors> = {
+    light: { 
+        bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', 
+        border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', 
+        tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', 
+        keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
+        itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', 
+        menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100',
+        displayBorder: 'border-gray-300'
+    },
+    dark: { 
+        bg: 'bg-gray-900', appBg: 'bg-slate-800', text: 'text-gray-100', subText: 'text-gray-400', 
+        border: 'border-slate-700', headerBg: 'bg-slate-800', tabBg: 'bg-slate-900', 
+        tabActive: 'bg-slate-800 text-indigo-400', tabInactive: 'text-slate-500 hover:bg-slate-700', 
+        keypadBg: 'bg-slate-900', totalBarBg: 'bg-slate-800', menuBg: 'bg-slate-800', 
+        itemBorder: 'border-slate-600', menuItemHover: 'hover:bg-slate-700', 
+        menuItemActive: 'bg-slate-700 text-indigo-400', activeLineBg: 'bg-slate-700/50 ring-1 ring-indigo-500/50',
+        displayBorder: 'border-slate-600'
+    },
+    black: { 
+        bg: 'bg-black', appBg: 'bg-black', text: 'text-gray-200', subText: 'text-gray-500', 
+        border: 'border-gray-800', headerBg: 'bg-black', tabBg: 'bg-black', 
+        tabActive: 'bg-black text-indigo-500 border-t-2 border-indigo-500', 
+        tabInactive: 'text-gray-600 hover:text-gray-400', keypadBg: 'bg-black', 
+        totalBarBg: 'bg-black', menuBg: 'bg-black', itemBorder: 'border-gray-800', 
+        menuItemHover: 'hover:bg-gray-900', menuItemActive: 'bg-gray-900 text-indigo-500', 
+        activeLineBg: 'bg-gray-900 ring-1 ring-gray-700',
+        displayBorder: 'border-gray-800'
+    }
+};
+
+const LabelText: React.FC<{ text: string; show: boolean }> = ({ text, show }) => 
+    show ? <span className="text-[10px] font-bold mt-0.5 leading-none">{text}</span> : null;
+
 const App = () => {
-    // Start with 9 pages by default
-    const [pages, setPages] = useState<BillItem[][]>(Array.from({ length: 9 }, () => [])); 
+    // --- State ---
+    const [pages, setPages] = useState<BillItem[][]>(Array.from({ length: 4 }, () => [])); 
     const [currentPage, setCurrentPage] = useState(0);
     const [currentInput, setCurrentInput] = useState('');
     const [activeItemId, setActiveItemId] = useState<number | null>(null); 
-    const [userId, setUserId] = useState<string | null>(null);
+    // Auth state is initialized but not actively used for data sync in this version
+    const [, setUserId] = useState<string | null>(null);
 
-    // Default rates: 5, 18, 40
+    // Settings State
     const [taxRate, setTaxRate] = useState(18); 
     const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
-    
-    // Default theme set to 'light'
     const [theme, setTheme] = useState<string>('light'); 
     const [systemTheme, setSystemTheme] = useState<ThemeName>('light');
     const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>('auto');
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN');
     const [showLabels, setShowLabels] = useState(false);
 
+    // UI State
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [menuView, setMenuView] = useState('main'); 
-    
-    // Settings menu state for Tax Rates
     const [editingRateIndex, setEditingRateIndex] = useState<number | null>(null);
     const [newRateInput, setNewRateInput] = useState('');
 
+    // Refs
     const inputRef = useRef<HTMLInputElement>(null);
     const cursorPositionRef = useRef<number | null>(null);
     const editRateInputRef = useRef<HTMLInputElement>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
     
-    // Touch handling
+    // Touch Handling State
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
+    // Derived Values
     const billItems = pages[currentPage] || [];
     const livePreview = currentInput ? evaluateExpression(currentInput) : 0;
     const grandTotal = billItems.reduce((sum, item) => sum + item.result, 0) + (activeItemId === null ? livePreview : 0);
     const emptyLines = Math.max(0, 3 - billItems.length - (activeItemId === null ? 1 : 0)); 
     
+    const activeThemeName = theme === 'system' ? systemTheme : (theme as 'light' | 'dark' | 'black');
+    const themeColors = THEME_COLORS[activeThemeName];
     const currentPageColor = PAGE_COLORS[currentPage % PAGE_COLORS.length];
-    // Helper to get background color class from text color class for indicators
-    const getCurrentPageBgColor = (idx: number) => {
-        const colorClass = PAGE_COLORS[idx % PAGE_COLORS.length];
-        // Simple heuristic: replace 'text-' with 'bg-'
-        return colorClass.split(' ')[0].replace('text-', 'bg-');
-    };
+    
+    const getCurrentPageBgColor = (idx: number) => 
+        PAGE_COLORS[idx % PAGE_COLORS.length].split(' ')[0].replace('text-', 'bg-');
+
+    // --- Effects ---
 
     useEffect(() => {
         try {
-            // Check if config exists to avoid crash in simpler environments
             if (Object.keys(firebaseConfig).length > 0) {
                 const app = initializeApp(firebaseConfig);
                 const auth = getAuth(app);
@@ -95,7 +123,7 @@ const App = () => {
                 const unsubscribe = onAuthStateChanged(auth, (user) => user ? setUserId(user.uid) : initAuth());
                 return () => unsubscribe();
             }
-        } catch (e) { console.error("Firebase Init Error (Ignorable in development):", e); }
+        } catch (e) { console.error("Firebase Init Error:", e); }
     }, []);
 
     useEffect(() => {
@@ -120,13 +148,16 @@ const App = () => {
 
     useEffect(() => {
         if (!isMenuOpen) {
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 setMenuView('main');
                 setEditingRateIndex(null);
                 setNewRateInput('');
             }, 200);
+            return () => clearTimeout(timer);
         }
     }, [isMenuOpen]);
+
+    // --- Handlers ---
 
     const updateCurrentPageItems = (newItems: BillItem[]) => {
         setPages(prev => {
@@ -168,7 +199,6 @@ const App = () => {
     };
 
     const handleLineClick = (item: BillItem) => {
-        // Haptic is handled in CommittedLine component
         setActiveItemId(item.id);
         setCurrentInput(item.expression); 
         cursorPositionRef.current = item.expression.length;
@@ -179,15 +209,8 @@ const App = () => {
         if (baseVal === 0 && currentInput === '') return;
         
         const rateDecimal = taxRate / 100;
-        let finalVal, taxAmount;
-
-        if (isAdd) {
-            finalVal = baseVal * (1 + rateDecimal);
-            taxAmount = finalVal - baseVal;
-        } else {
-            finalVal = baseVal / (1 + rateDecimal);
-            taxAmount = baseVal - finalVal;
-        }
+        const finalVal = isAdd ? baseVal * (1 + rateDecimal) : baseVal / (1 + rateDecimal);
+        const taxAmount = isAdd ? finalVal - baseVal : baseVal - finalVal;
 
         const newItem: BillItem = {
             id: Date.now(),
@@ -205,7 +228,6 @@ const App = () => {
     };
 
     const handleInput = (value: string) => {
-        // Haptic is handled in Button component which calls this
         if (inputRef.current) inputRef.current.focus();
 
         switch(value) {
@@ -236,13 +258,10 @@ const App = () => {
     const onTouchEnd = () => {
         if (!touchStart || !touchEnd) return;
         const distance = touchStart - touchEnd;
-        // Swipe Left -> Next Page
         if (distance > 50 && currentPage < pages.length - 1) { 
             triggerHaptic();
             setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c + 1); 
-        }
-        // Swipe Right -> Prev Page
-        else if (distance < -50 && currentPage > 0) { 
+        } else if (distance < -50 && currentPage > 0) { 
             triggerHaptic();
             setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c - 1); 
         }
@@ -253,10 +272,7 @@ const App = () => {
     const handleTaxButtonClick = () => {
         triggerHaptic();
         if (availableRates.length === 0) return;
-        
         const currentIndex = availableRates.indexOf(taxRate);
-        // If current rate is not in list (e.g. was deleted), default to first.
-        // Otherwise cycle to next.
         const nextIndex = (currentIndex + 1) % availableRates.length;
         setTaxRate(availableRates[nextIndex]);
     };
@@ -292,58 +308,11 @@ const App = () => {
         if (taxRate === rateToDelete) setTaxRate(newRates[0]);
     };
 
-    const activeThemeName: ThemeName = theme === 'system' ? systemTheme : (theme as ThemeName);
-    
-    // Updated Theme Colors with 'displayBorder' for high-contrast frames
-    const themeColors: ThemeColors = {
-        light: { 
-            bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', 
-            border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', 
-            tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', 
-            keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
-            itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', 
-            menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100',
-            displayBorder: 'border-gray-300' // Lighter standard border
-        },
-        dark: { 
-            bg: 'bg-gray-900', appBg: 'bg-slate-800', text: 'text-gray-100', subText: 'text-gray-400', 
-            border: 'border-slate-700', headerBg: 'bg-slate-800', tabBg: 'bg-slate-900', 
-            tabActive: 'bg-slate-800 text-indigo-400', tabInactive: 'text-slate-500 hover:bg-slate-700', 
-            keypadBg: 'bg-slate-900', totalBarBg: 'bg-slate-800', menuBg: 'bg-slate-800', 
-            itemBorder: 'border-slate-600', menuItemHover: 'hover:bg-slate-700', 
-            menuItemActive: 'bg-slate-700 text-indigo-400', activeLineBg: 'bg-slate-700/50 ring-1 ring-indigo-500/50',
-            displayBorder: 'border-slate-600' // Lighter dark mode border
-        },
-        black: { 
-            bg: 'bg-black', appBg: 'bg-black', text: 'text-gray-200', subText: 'text-gray-500', 
-            border: 'border-gray-800', headerBg: 'bg-black', tabBg: 'bg-black', 
-            tabActive: 'bg-black text-indigo-500 border-t-2 border-indigo-500', 
-            tabInactive: 'text-gray-600 hover:text-gray-400', keypadBg: 'bg-black', 
-            totalBarBg: 'bg-black', menuBg: 'bg-black', itemBorder: 'border-gray-800', 
-            menuItemHover: 'hover:bg-gray-900', menuItemActive: 'bg-gray-900 text-indigo-500', 
-            activeLineBg: 'bg-gray-900 ring-1 ring-gray-700',
-            displayBorder: 'border-gray-800' // Subtle frame for OLED
-        },
-        system: { 
-            bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', 
-            border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', 
-            tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', 
-            keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
-            itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', 
-            menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100',
-            displayBorder: 'border-gray-300'
-        }
-    }[activeThemeName];
-
-    // Helper to render labels inside icon buttons if setting is enabled
-    const LabelText = ({ text }: { text: string }) => showLabels ? <span className="text-[10px] font-bold mt-0.5 leading-none">{text}</span> : null;
-
     return (
         <div className={`min-h-screen flex items-center justify-center sm:p-4 font-sans transition-colors duration-300 ${themeColors.bg}`}>
-            <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-            
             <div className={`w-full max-w-[412px] ${themeColors.appBg} sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col h-screen sm:h-[850px] relative border sm:border-[4px] ${themeColors.border} transition-colors duration-300`}>
                 
+                {/* --- Menu Overlay --- */}
                 {isMenuOpen && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => { triggerHaptic(); setIsMenuOpen(false); }} />
@@ -355,24 +324,18 @@ const App = () => {
                             <div className="flex-1 overflow-y-auto no-scrollbar">
                                 {menuView === 'main' && (
                                     <div className="space-y-2">
-                                        <button onClick={() => { triggerHaptic(); setMenuView('themes'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Palette size={22} /> Themes</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('taxRates'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Percent size={22} /> Tax Rates</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('formatting'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Globe size={22} /> Number System</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('decimals'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Hash size={22} /> Decimal Places</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('display'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Tag size={22} /> Display</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('about'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Info size={22} /> About</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
+                                        {[
+                                            { id: 'themes', icon: Palette, label: 'Themes' },
+                                            { id: 'taxRates', icon: Percent, label: 'Tax Rates' },
+                                            { id: 'formatting', icon: Globe, label: 'Number System' },
+                                            { id: 'decimals', icon: Hash, label: 'Decimal Places' },
+                                            { id: 'display', icon: Tag, label: 'Display' },
+                                            { id: 'about', icon: Info, label: 'About' }
+                                        ].map(item => (
+                                            <button key={item.id} onClick={() => { triggerHaptic(); setMenuView(item.id); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
+                                                <div className="flex items-center gap-3"><item.icon size={22} /> {item.label}</div><ChevronRight size={20} className="opacity-50" />
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
                                 {menuView === 'themes' && (
@@ -417,26 +380,14 @@ const App = () => {
                                     <div className="space-y-4 animate-in slide-in-from-right duration-200">
                                         <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
                                         <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Number System</h3>
-                                        <p className={`text-sm opacity-70 ${themeColors.subText} mb-4`}>Select how numbers are formatted.</p>
                                         <div className="space-y-3">
-                                            {([
+                                            {[
                                                 { id: 'IN', label: 'Indian', desc: 'Lakhs & Crores (1,23,456.78)' },
                                                 { id: 'INTL', label: 'International', desc: 'Millions (123,456.78)' },
                                                 { id: 'NONE', label: 'None', desc: 'Raw number (123456.78)' }
-                                            ] as const).map(opt => (
-                                                <button 
-                                                    key={opt.id} 
-                                                    onClick={() => { triggerHaptic(); setNumberFormat(opt.id); }} 
-                                                    className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${
-                                                        numberFormat === opt.id 
-                                                        ? themeColors.menuItemActive + ' border-transparent' 
-                                                        : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover
-                                                    }`}
-                                                >
-                                                    <div className="flex flex-col items-start">
-                                                        <span className="font-semibold text-lg">{opt.label}</span>
-                                                        <span className="text-xs opacity-60">{opt.desc}</span>
-                                                    </div>
+                                            ].map(opt => (
+                                                <button key={opt.id} onClick={() => { triggerHaptic(); setNumberFormat(opt.id as NumberFormat); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${numberFormat === opt.id ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
+                                                    <div className="flex flex-col items-start"><span className="font-semibold text-lg">{opt.label}</span><span className="text-xs opacity-60">{opt.desc}</span></div>
                                                     {numberFormat === opt.id && <Check size={20} />}
                                                 </button>
                                             ))}
@@ -447,28 +398,16 @@ const App = () => {
                                     <div className="space-y-4 animate-in slide-in-from-right duration-200">
                                         <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
                                         <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Decimal Precision</h3>
-                                        <p className={`text-sm opacity-70 ${themeColors.subText} mb-4`}>Select the number of decimal places to display in calculations.</p>
                                         <div className="space-y-3">
-                                            {([
+                                            {[
                                                 { id: 'auto', label: 'Auto (Default)', desc: 'No trailing zeros' },
                                                 { id: 0, label: '0', desc: 'Integers only' },
                                                 { id: 2, label: '2', desc: 'Standard (0.00)' },
                                                 { id: 3, label: '3', desc: 'High precision (0.000)' },
                                                 { id: 4, label: '4', desc: 'Extra precision' }
-                                            ] as const).map(opt => (
-                                                <button 
-                                                    key={opt.id} 
-                                                    onClick={() => { triggerHaptic(); setDecimalConfig(opt.id); }} 
-                                                    className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${
-                                                        decimalConfig === opt.id 
-                                                        ? themeColors.menuItemActive + ' border-transparent' 
-                                                        : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover
-                                                    }`}
-                                                >
-                                                    <div className="flex flex-col items-start">
-                                                        <span className="font-semibold text-lg">{opt.label}</span>
-                                                        <span className="text-xs opacity-60">{opt.desc}</span>
-                                                    </div>
+                                            ].map(opt => (
+                                                <button key={opt.id.toString()} onClick={() => { triggerHaptic(); setDecimalConfig(opt.id as DecimalConfig); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${decimalConfig === opt.id ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
+                                                    <div className="flex flex-col items-start"><span className="font-semibold text-lg">{opt.label}</span><span className="text-xs opacity-60">{opt.desc}</span></div>
                                                     {decimalConfig === opt.id && <Check size={20} />}
                                                 </button>
                                             ))}
@@ -480,18 +419,8 @@ const App = () => {
                                         <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
                                         <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Display Settings</h3>
                                         <div className="space-y-3">
-                                            <button 
-                                                onClick={() => { triggerHaptic(); setShowLabels(!showLabels); }} 
-                                                className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${
-                                                    showLabels
-                                                    ? themeColors.menuItemActive + ' border-transparent' 
-                                                    : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover
-                                                }`}
-                                            >
-                                                <div className="flex flex-col items-start">
-                                                    <span className="font-semibold text-lg">Button Labels</span>
-                                                    <span className="text-xs opacity-60">Show text labels on icon buttons</span>
-                                                </div>
+                                            <button onClick={() => { triggerHaptic(); setShowLabels(!showLabels); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${showLabels ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
+                                                <div className="flex flex-col items-start"><span className="font-semibold text-lg">Button Labels</span><span className="text-xs opacity-60">Show text labels on icon buttons</span></div>
                                                 {showLabels && <Check size={20} />}
                                             </button>
                                         </div>
@@ -504,13 +433,10 @@ const App = () => {
                                         <div className="flex flex-col items-center text-center space-y-4 py-8">
                                             <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">G</div>
                                             <h2 className="text-2xl font-bold">GANAKA</h2>
-                                            <p className={`opacity-70 ${themeColors.subText}`}>
-                                                A powerful, intuitive calculator designed for rapid GST calculations and multi-page management.
-                                            </p>
+                                            <p className={`opacity-70 ${themeColors.subText}`}>A powerful, intuitive calculator designed for rapid GST calculations and multi-page management.</p>
                                             <div className="pt-6 w-full">
                                                 <a href="https://github.com/" target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-2 p-4 rounded-xl w-full font-bold transition-colors border ${themeColors.border} ${themeColors.menuItemHover}`}>
-                                                    <Github size={20} />
-                                                    Visit GitHub
+                                                    <Github size={20} /> Visit GitHub
                                                 </a>
                                             </div>
                                             <p className="text-xs opacity-40 pt-8">Version 1.6.0</p>
@@ -523,13 +449,12 @@ const App = () => {
                     </div>
                 )}
 
+                {/* --- Main Content --- */}
                 <div className={`flex-1 flex flex-col overflow-hidden relative transition-colors duration-300 p-3 pb-0`}>
-                    
-                    {/* Unified Display Container */}
                     <div className={`flex flex-col flex-1 border-[3px] rounded-2xl overflow-hidden shadow-sm ${themeColors.displayBorder} ${themeColors.appBg}`}>
                         
-                        {/* Top: Pages Row */}
-                        <div className={`flex items-center justify-between w-full overflow-x-auto no-scrollbar gap-2 p-2 border-b ${themeColors.border} ${themeColors.headerBg} min-h-[52px]`}>
+                        {/* Tabbed Pages */}
+                        <div className={`grid grid-cols-4 gap-2 p-2 border-b ${themeColors.border} ${themeColors.headerBg} min-h-[52px]`}>
                              {pages.map((_, idx) => (
                                 <button
                                     key={idx}
@@ -539,7 +464,7 @@ const App = () => {
                                         setCurrentInput('');
                                         setCurrentPage(idx);
                                     }}
-                                    className={`flex items-center justify-center min-w-[36px] h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
+                                    className={`flex items-center justify-center w-full h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
                                         currentPage === idx 
                                         ? `${getCurrentPageBgColor(idx)} text-white shadow-md scale-105` 
                                         : `bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600`
@@ -550,7 +475,7 @@ const App = () => {
                             ))}
                         </div>
 
-                        {/* Middle: Scrollable List */}
+                        {/* List Area */}
                         <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar`} 
                              onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
                              onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
@@ -569,7 +494,7 @@ const App = () => {
                             <div ref={listEndRef} />
                         </div>
                         
-                        {/* Bottom: Total Bar */}
+                        {/* Total Bar */}
                         <div className={`flex items-center justify-between p-3 border-t ${themeColors.border} ${themeColors.totalBarBg} h-14 z-10`}>
                             <span className={`text-xl font-bold uppercase tracking-wider ${currentPageColor}`}>TOTAL =</span>
                             <span className={`text-2xl font-bold ${currentPageColor}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
@@ -577,11 +502,12 @@ const App = () => {
                     </div>
                 </div>
 
+                {/* --- Keypad --- */}
                 <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300 mt-2`}>
-                    <Button icon={RotateCcw} label={<LabelText text="Clear" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-200 text-rose-800 active:bg-rose-300 dark:bg-purple-800 dark:text-purple-100 dark:active:bg-purple-700" />
-                    <Button icon={ChevronsLeft} label={<LabelText text="Line" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-orange-800 active:bg-orange-300 dark:bg-blue-800 dark:text-blue-100 dark:active:bg-blue-700" />
-                    <Button icon={ChevronLeft} label={<LabelText text="Back" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-amber-800 active:bg-amber-300 dark:bg-stone-600 dark:text-stone-100 dark:active:bg-stone-500" />
-                    <Button icon={CornerDownLeft} label={<LabelText text="Enter" />} onClick={() => handleInput('NEXT_LINE')} className="bg-indigo-600 text-white active:bg-indigo-700 dark:bg-indigo-700 dark:text-indigo-100 dark:active:bg-indigo-600" />
+                    <Button icon={RotateCcw} label={<LabelText text="Clear" show={showLabels} />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-200 text-rose-800 active:bg-rose-300 dark:bg-purple-800 dark:text-purple-100 dark:active:bg-purple-700" />
+                    <Button icon={ChevronsLeft} label={<LabelText text="Line" show={showLabels} />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-orange-800 active:bg-orange-300 dark:bg-blue-800 dark:text-blue-100 dark:active:bg-blue-700" />
+                    <Button icon={ChevronLeft} label={<LabelText text="Back" show={showLabels} />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-amber-800 active:bg-amber-300 dark:bg-stone-600 dark:text-stone-100 dark:active:bg-stone-500" />
+                    <Button icon={CornerDownLeft} label={<LabelText text="Enter" show={showLabels} />} onClick={() => handleInput('NEXT_LINE')} className="bg-indigo-600 text-white active:bg-indigo-700 dark:bg-indigo-700 dark:text-indigo-100 dark:active:bg-indigo-600" />
 
                     <Button 
                         label={
@@ -591,14 +517,14 @@ const App = () => {
                                     <span className="text-lg font-bold leading-none pt-0.5">{taxRate}%</span>
                                     <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
                                 </div>
-                                <LabelText text="Rate" />
+                                <LabelText text="Rate" show={showLabels} />
                             </div>
                         } 
                         onClick={handleTaxButtonClick} 
                         className="bg-purple-100 text-purple-800 active:bg-purple-200 border-2 border-purple-200 dark:bg-indigo-900 dark:text-indigo-100 dark:border-indigo-700 dark:active:bg-indigo-800 shadow-sm" 
                     />
-                    <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="Add" /></div>} onClick={() => handleInput('TAX+')} className="bg-emerald-100 text-emerald-800 active:bg-emerald-200 dark:bg-emerald-800 dark:text-emerald-100 dark:active:bg-emerald-700 text-sm font-bold" />
-                    <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="Sub" /></div>} onClick={() => handleInput('TAX-')} className="bg-red-100 text-red-800 active:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:active:bg-red-700 text-sm font-bold" />
+                    <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="Add" show={showLabels} /></div>} onClick={() => handleInput('TAX+')} className="bg-emerald-100 text-emerald-800 active:bg-emerald-200 dark:bg-emerald-800 dark:text-emerald-100 dark:active:bg-emerald-700 text-sm font-bold" />
+                    <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="Sub" show={showLabels} /></div>} onClick={() => handleInput('TAX-')} className="bg-red-100 text-red-800 active:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:active:bg-red-700 text-sm font-bold" />
 
                     <Button label="%" onClick={() => handleInput('%')} className="bg-violet-100 text-violet-800 active:bg-violet-200 dark:bg-fuchsia-800 dark:text-fuchsia-100 dark:active:bg-fuchsia-700 font-bold" />
                     <Button label="7" onClick={() => handleInput('7')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
@@ -613,7 +539,7 @@ const App = () => {
                     <Button label="2" onClick={() => handleInput('2')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
                     <Button label="3" onClick={() => handleInput('3')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
                     <Button label="-" onClick={() => handleInput('-')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-sky-800 dark:text-sky-100 dark:active:bg-sky-700 text-2xl" />
-                    <Button icon={Settings} label={<LabelText text="Menu" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-gray-200 text-gray-800 active:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:active:bg-gray-600 font-bold" />
+                    <Button icon={Settings} label={<LabelText text="Menu" show={showLabels} />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-gray-200 text-gray-800 active:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:active:bg-gray-600 font-bold" />
                     <Button label="0" onClick={() => handleInput('0')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
                     <Button label="." onClick={() => handleInput('.')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600 font-bold text-xl" />
                     <Button label="+" onClick={() => handleInput('+')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-teal-800 dark:text-teal-100 dark:active:bg-teal-700 text-2xl" />
