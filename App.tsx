@@ -38,7 +38,7 @@ const THEME_COLORS: Record<string, ThemeColors> = {
 };
 
 const LabelText: React.FC<{ text: string }> = ({ text }) => 
-    <span className="text-[9px] font-bold mt-0.5 leading-none opacity-60">{text}</span>;
+    <span className="text-[9px] font-bold mt-1.5 leading-none opacity-60">{text}</span>;
 
 const App = () => {
     // --- State ---
@@ -193,7 +193,14 @@ const App = () => {
 
         switch(value) {
             case 'CLEAR_ALL': updateCurrentPageItems([]); setCurrentInput(''); setActiveItemId(null); break;
-            case 'CLEAR_LINE': updateInput('', 0); break;
+            case 'CLEAR_LINE': 
+                if (currentInput) {
+                    updateInput('', 0); 
+                } else if (billItems.length > 0) {
+                    // Remove the last line if current input is empty
+                    updateCurrentPageItems(billItems.slice(0, -1));
+                }
+                break;
             case 'DELETE': deleteAtCursor(); break;
             case 'NEXT_LINE':
                 if (activeItemId !== null) {
@@ -451,7 +458,7 @@ const App = () => {
                         <div className="flex flex-col items-center">
                             <div className="flex items-center justify-center gap-1">
                                 <ChevronLeft size={16} strokeWidth={3} className="opacity-40" />
-                                <span className="text-xl font-bold leading-none pt-0.5">{taxRate}%</span>
+                                <span className="text-xl font-bold leading-none">{taxRate}%</span>
                                 <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
                             </div>
                             <LabelText text="GST" />
