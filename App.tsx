@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
-    RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
+    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
     Check, Edit2, Trash2, Plus, Settings, ArrowLeft, 
     ChevronRight, Info, Github, Hash, Globe
 } from 'lucide-react';
@@ -38,7 +38,7 @@ const THEME_COLORS: Record<string, ThemeColors> = {
 };
 
 const LabelText: React.FC<{ text: string }> = ({ text }) => 
-    <span className="text-[10px] font-bold mt-0.5 leading-none opacity-60">{text}</span>;
+    <span className="text-[9px] font-bold mt-0.5 leading-none opacity-60">{text}</span>;
 
 const App = () => {
     // --- State ---
@@ -440,7 +440,7 @@ const App = () => {
             {/* --- Keypad --- */}
             <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300 mt-2`}>
                 {/* Row 1 */}
-                <Button icon={RotateCcw} label={<LabelText text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                <Button icon={RefreshCw} label={<LabelText text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
                 <Button icon={ChevronsLeft} label={<LabelText text="CLEAR" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
                 <Button icon={ChevronLeft} label={<LabelText text="DELETE" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
                 <Button icon={CornerDownLeft} label={<LabelText text="ENTER" />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
@@ -460,9 +460,9 @@ const App = () => {
                     onClick={handleTaxButtonClick} 
                     className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
                 />
-                <Button label={<div className="flex flex-col items-center"><span>GST+</span></div>} onClick={() => handleInput('TAX+')} className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" />
-                <Button label={<div className="flex flex-col items-center"><span>GST-</span></div>} onClick={() => handleInput('TAX-')} className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" />
-                <Button label="%" onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
+                <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="PLUS" /></div>} onClick={() => handleInput('TAX+')} className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" />
+                <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="MINUS" /></div>} onClick={() => handleInput('TAX-')} className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" />
+                <Button label={<div className="flex flex-col items-center"><span className="text-xl">%</span><LabelText text="PERCENT" /></div>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
                 
                 {/* Row 3 */}
                 <Button label="7" onClick={() => handleInput('7')} className="bg-white text-black shadow-sm active:bg-gray-100" />
@@ -483,7 +483,7 @@ const App = () => {
                 <Button label="-" onClick={() => handleInput('-')} className="bg-blue-200 text-black active:bg-blue-300 text-2xl" />
                 
                 {/* Row 6 */}
-                <Button icon={Settings} label={<LabelText text="MENU" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
+                <Button icon={Settings} label={<LabelText text="GANAKA" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
                 <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
                 <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />
                 <Button label="+" onClick={() => handleInput('+')} className="bg-purple-200 text-black active:bg-purple-300 text-2xl" />
