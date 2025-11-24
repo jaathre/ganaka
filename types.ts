@@ -44,3 +44,7 @@ export interface ThemeColors {
 }
 
 export type ThemeName = 'light' | 'dark' | 'black' | 'system';
+
+export type DecimalConfig = 'auto' | number;
+
+export type NumberFormat = 'IN' | 'INTL' | 'NONE';
