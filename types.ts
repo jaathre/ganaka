@@ -1,3 +1,4 @@
+
 // Global variable declarations for the specific environment
 declare global {
     interface Window {
@@ -41,6 +42,7 @@ export interface ThemeColors {
     menuItemHover: string;
     menuItemActive: string;
     activeLineBg: string;
+    displayBorder: string; // New field for the high-contrast display frame
 }
 
 export type ThemeName = 'light' | 'dark' | 'black' | 'system';

@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Palette, Percent, 
     Check, Edit2, Trash2, Plus, Settings, Sun, Moon, Smartphone, Monitor, ArrowLeft, 
-    ChevronRight, Info, Github, Hash, Layers, Globe, Tag
+    ChevronRight, Info, Github, Hash, Globe, Tag
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -32,8 +33,8 @@ const PAGE_COLORS = [
 ];
 
 const App = () => {
-    // Start with 3 pages by default
-    const [pages, setPages] = useState<BillItem[][]>([[], [], []]); 
+    // Start with 9 pages by default
+    const [pages, setPages] = useState<BillItem[][]>(Array.from({ length: 9 }, () => [])); 
     const [currentPage, setCurrentPage] = useState(0);
     const [currentInput, setCurrentInput] = useState('');
     const [activeItemId, setActiveItemId] = useState<number | null>(null); 
@@ -43,7 +44,8 @@ const App = () => {
     const [taxRate, setTaxRate] = useState(18); 
     const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
     
-    const [theme, setTheme] = useState<string>('system'); 
+    // Default theme set to 'light'
+    const [theme, setTheme] = useState<string>('light'); 
     const [systemTheme, setSystemTheme] = useState<ThemeName>('light');
     const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>('auto');
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('NONE');
@@ -126,20 +128,6 @@ const App = () => {
             newPages[currentPage] = newItems;
             return newPages;
         });
-    };
-    
-    const setPageCount = (count: number) => {
-        if (count < 1) return;
-        setPages(prev => {
-            if (count > prev.length) {
-                return [...prev, ...Array(count - prev.length).fill(null).map(() => [])];
-            } else {
-                return prev.slice(0, count);
-            }
-        });
-        if (currentPage >= count) {
-            setCurrentPage(count - 1);
-        }
     };
 
     const updateInput = (newString: string, newCursorPos: number | null = null) => {
@@ -296,11 +284,45 @@ const App = () => {
 
     const activeThemeName: ThemeName = theme === 'system' ? systemTheme : (theme as ThemeName);
     
+    // Updated Theme Colors with 'displayBorder' for high-contrast frames
     const themeColors: ThemeColors = {
-        light: { bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100' },
-        dark: { bg: 'bg-gray-900', appBg: 'bg-slate-800', text: 'text-gray-100', subText: 'text-gray-400', border: 'border-slate-700', headerBg: 'bg-slate-800', tabBg: 'bg-slate-900', tabActive: 'bg-slate-800 text-indigo-400', tabInactive: 'text-slate-500 hover:bg-slate-700', keypadBg: 'bg-slate-900', totalBarBg: 'bg-slate-800', menuBg: 'bg-slate-800', itemBorder: 'border-slate-600', menuItemHover: 'hover:bg-slate-700', menuItemActive: 'bg-slate-700 text-indigo-400', activeLineBg: 'bg-slate-700/50 ring-1 ring-indigo-500/50' },
-        black: { bg: 'bg-black', appBg: 'bg-black', text: 'text-gray-200', subText: 'text-gray-500', border: 'border-gray-800', headerBg: 'bg-black', tabBg: 'bg-black', tabActive: 'bg-black text-indigo-500 border-t-2 border-indigo-500', tabInactive: 'text-gray-600 hover:text-gray-400', keypadBg: 'bg-black', totalBarBg: 'bg-black', menuBg: 'bg-black', itemBorder: 'border-gray-800', menuItemHover: 'hover:bg-gray-900', menuItemActive: 'bg-gray-900 text-indigo-500', activeLineBg: 'bg-gray-900 ring-1 ring-gray-700' },
-        system: { bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100' } // Fallback
+        light: { 
+            bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', 
+            border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', 
+            tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', 
+            keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
+            itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', 
+            menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100',
+            displayBorder: 'border-gray-300' // Lighter standard border
+        },
+        dark: { 
+            bg: 'bg-gray-900', appBg: 'bg-slate-800', text: 'text-gray-100', subText: 'text-gray-400', 
+            border: 'border-slate-700', headerBg: 'bg-slate-800', tabBg: 'bg-slate-900', 
+            tabActive: 'bg-slate-800 text-indigo-400', tabInactive: 'text-slate-500 hover:bg-slate-700', 
+            keypadBg: 'bg-slate-900', totalBarBg: 'bg-slate-800', menuBg: 'bg-slate-800', 
+            itemBorder: 'border-slate-600', menuItemHover: 'hover:bg-slate-700', 
+            menuItemActive: 'bg-slate-700 text-indigo-400', activeLineBg: 'bg-slate-700/50 ring-1 ring-indigo-500/50',
+            displayBorder: 'border-slate-600' // Lighter dark mode border
+        },
+        black: { 
+            bg: 'bg-black', appBg: 'bg-black', text: 'text-gray-200', subText: 'text-gray-500', 
+            border: 'border-gray-800', headerBg: 'bg-black', tabBg: 'bg-black', 
+            tabActive: 'bg-black text-indigo-500 border-t-2 border-indigo-500', 
+            tabInactive: 'text-gray-600 hover:text-gray-400', keypadBg: 'bg-black', 
+            totalBarBg: 'bg-black', menuBg: 'bg-black', itemBorder: 'border-gray-800', 
+            menuItemHover: 'hover:bg-gray-900', menuItemActive: 'bg-gray-900 text-indigo-500', 
+            activeLineBg: 'bg-gray-900 ring-1 ring-gray-700',
+            displayBorder: 'border-gray-800' // Subtle frame for OLED
+        },
+        system: { 
+            bg: 'bg-gray-200', appBg: 'bg-white', text: 'text-gray-800', subText: 'text-gray-500', 
+            border: 'border-gray-200', headerBg: 'bg-white', tabBg: 'bg-gray-50', 
+            tabActive: 'bg-white text-indigo-600', tabInactive: 'text-gray-400 hover:bg-gray-100', 
+            keypadBg: 'bg-gray-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
+            itemBorder: 'border-gray-300', menuItemHover: 'hover:bg-gray-50', 
+            menuItemActive: 'bg-indigo-50 text-indigo-700', activeLineBg: 'bg-yellow-50/50 ring-1 ring-blue-100',
+            displayBorder: 'border-gray-300'
+        }
     }[activeThemeName];
 
     // Helper to render labels inside icon buttons if setting is enabled
@@ -326,9 +348,6 @@ const App = () => {
                                         <button onClick={() => { triggerHaptic(); setMenuView('themes'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-3"><Palette size={22} /> Themes</div><ChevronRight size={20} className="opacity-50" />
                                         </button>
-                                        <button onClick={() => { triggerHaptic(); setMenuView('pages'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><Layers size={22} /> Pages</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
                                         <button onClick={() => { triggerHaptic(); setMenuView('taxRates'); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-3"><Percent size={22} /> Tax Rates</div><ChevronRight size={20} className="opacity-50" />
                                         </button>
@@ -353,28 +372,6 @@ const App = () => {
                                         <div className="space-y-3">
                                             {['light', 'dark', 'black', 'system'].map(t => (
                                                 <ThemeOption key={t} id={t} label={t.charAt(0).toUpperCase() + t.slice(1) + (t==='black' ? ' (OLED)' : '')} icon={t==='light'?Sun:t==='dark'?Moon:t==='black'?Smartphone:Monitor} currentTheme={theme} setTheme={setTheme} themeColors={themeColors} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {menuView === 'pages' && (
-                                    <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                        <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                        <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Number of Pages</h3>
-                                        <p className={`text-sm opacity-70 ${themeColors.subText} mb-4`}>Select the number of active pages.</p>
-                                        <div className="grid grid-cols-5 gap-2">
-                                            {Array.from({ length: 9 }, (_, i) => i + 1).map(num => (
-                                                 <button 
-                                                 key={num} 
-                                                 onClick={() => { triggerHaptic(); setPageCount(num); }} 
-                                                 className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all outline-none ${
-                                                     pages.length === num
-                                                     ? themeColors.menuItemActive + ' border-transparent font-bold' 
-                                                     : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover
-                                                 }`}
-                                             >
-                                                {num}
-                                             </button>
                                             ))}
                                         </div>
                                     </div>
@@ -516,26 +513,29 @@ const App = () => {
                     </div>
                 )}
 
-                <div className={`flex-1 flex flex-col overflow-hidden relative transition-colors duration-300`}>
-                    <div className={`flex-1 overflow-y-auto px-4 pb-4 pt-0 space-y-0 border-b ${themeColors.border} flex flex-col no-scrollbar`} 
-                         onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
-                         onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
-                         onTouchEnd={onTouchEnd}>
-                        {billItems.map((item) => (
-                            item.id === activeItemId ? 
-                            <ActiveLine key={item.id} currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} /> : 
-                            <CommittedLine key={item.id} item={item} onClick={handleLineClick} themeColors={themeColors} mode={item.mode} decimalConfig={decimalConfig} numberFormat={numberFormat} />
-                        ))}
-                        {activeItemId === null && <ActiveLine currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} />}
-                        {[...Array(emptyLines)].map((_, i) => (
-                            <div key={`empty-${i}`} className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-1.5 px-2 opacity-10`}>
-                                <div className="h-8 w-full" />
-                            </div>
-                        ))}
-                        <div ref={listEndRef} />
+                <div className={`flex-1 flex flex-col overflow-hidden relative transition-colors duration-300 p-2 sm:p-4 pb-0 sm:pb-0`}>
+                    
+                    <div className={`flex flex-col flex-1 border-[3px] rounded-t-2xl overflow-hidden shadow-sm ${themeColors.displayBorder} ${themeColors.appBg}`}>
+                        <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar`} 
+                             onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
+                             onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
+                             onTouchEnd={onTouchEnd}>
+                            {billItems.map((item) => (
+                                item.id === activeItemId ? 
+                                <ActiveLine key={item.id} currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} /> : 
+                                <CommittedLine key={item.id} item={item} onClick={handleLineClick} themeColors={themeColors} mode={item.mode} decimalConfig={decimalConfig} numberFormat={numberFormat} />
+                            ))}
+                            {activeItemId === null && <ActiveLine currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} />}
+                            {[...Array(emptyLines)].map((_, i) => (
+                                <div key={`empty-${i}`} className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-1.5 px-2 opacity-10`}>
+                                    <div className="h-8 w-full" />
+                                </div>
+                            ))}
+                            <div ref={listEndRef} />
+                        </div>
                     </div>
                     
-                    <div className={`${themeColors.totalBarBg} ${themeColors.text} border-t ${themeColors.border} py-1.5 px-3 z-10 shadow-md transition-colors duration-300`}>
+                    <div className={`${themeColors.totalBarBg} ${themeColors.text} border-[3px] border-t-0 rounded-b-2xl py-1.5 px-3 z-10 shadow-sm transition-colors duration-300 ${themeColors.displayBorder}`}>
                         <div className="grid grid-cols-4 gap-2">
                             <div className="col-span-1 flex items-center justify-between">
                                 <button 
@@ -555,18 +555,18 @@ const App = () => {
                                 </button>
                             </div>
                             <div className="col-span-3 flex items-center justify-between pl-2">
-                                <span className={`text-xl font-bold uppercase tracking-wider opacity-100 ${currentPageColor}`}>TOTAL</span>
+                                <span className={`text-xl font-bold uppercase tracking-wider opacity-100 ${currentPageColor}`}>TOTAL =</span>
                                 <span className={`text-2xl font-bold ${currentPageColor}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300`}>
-                    <Button icon={RotateCcw} label={<LabelText text="Clear" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-stone-200 text-stone-700 hover:bg-stone-300 dark:bg-purple-800 dark:text-purple-100" />
-                    <Button icon={ChevronsLeft} label={<LabelText text="Line" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-blue-800 dark:text-blue-100" />
-                    <Button icon={ChevronLeft} label={<LabelText text="Back" />} onClick={() => handleInput('DELETE')} className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-stone-600 dark:text-stone-100" />
-                    <Button icon={CornerDownLeft} label={<LabelText text="Enter" />} onClick={() => handleInput('NEXT_LINE')} className="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-700 dark:text-indigo-100" />
+                <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300 mt-2`}>
+                    <Button icon={RotateCcw} label={<LabelText text="Clear" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-200 text-rose-800 active:bg-rose-300 dark:bg-purple-800 dark:text-purple-100 dark:active:bg-purple-700" />
+                    <Button icon={ChevronsLeft} label={<LabelText text="Line" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-orange-800 active:bg-orange-300 dark:bg-blue-800 dark:text-blue-100 dark:active:bg-blue-700" />
+                    <Button icon={ChevronLeft} label={<LabelText text="Back" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-amber-800 active:bg-amber-300 dark:bg-stone-600 dark:text-stone-100 dark:active:bg-stone-500" />
+                    <Button icon={CornerDownLeft} label={<LabelText text="Enter" />} onClick={() => handleInput('NEXT_LINE')} className="bg-indigo-600 text-white active:bg-indigo-700 dark:bg-indigo-700 dark:text-indigo-100 dark:active:bg-indigo-600" />
 
                     <Button 
                         label={
@@ -580,28 +580,28 @@ const App = () => {
                             </div>
                         } 
                         onClick={handleTaxButtonClick} 
-                        className="bg-fuchsia-50 text-fuchsia-800 hover:bg-fuchsia-100 border-2 border-fuchsia-100 dark:bg-indigo-900 dark:text-indigo-100 dark:border-indigo-700 shadow-sm" 
+                        className="bg-purple-100 text-purple-800 active:bg-purple-200 border-2 border-purple-200 dark:bg-indigo-900 dark:text-indigo-100 dark:border-indigo-700 dark:active:bg-indigo-800 shadow-sm" 
                     />
-                    <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="Add" /></div>} onClick={() => handleInput('TAX+')} className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-800 dark:text-emerald-100 text-sm font-bold" />
-                    <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="Sub" /></div>} onClick={() => handleInput('TAX-')} className="bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 text-sm font-bold" />
+                    <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="Add" /></div>} onClick={() => handleInput('TAX+')} className="bg-emerald-100 text-emerald-800 active:bg-emerald-200 dark:bg-emerald-800 dark:text-emerald-100 dark:active:bg-emerald-700 text-sm font-bold" />
+                    <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="Sub" /></div>} onClick={() => handleInput('TAX-')} className="bg-red-100 text-red-800 active:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:active:bg-red-700 text-sm font-bold" />
 
-                    <Button label="%" onClick={() => handleInput('%')} className="bg-violet-50 text-violet-800 hover:bg-violet-100 dark:bg-fuchsia-800 dark:text-fuchsia-100 font-bold" />
-                    <Button label="7" onClick={() => handleInput('7')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="8" onClick={() => handleInput('8')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="9" onClick={() => handleInput('9')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="÷" onClick={() => handleInput('÷')} className="bg-sky-50 text-sky-800 hover:bg-sky-100 dark:bg-lime-800 dark:text-lime-100 text-2xl" />
-                    <Button label="4" onClick={() => handleInput('4')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="5" onClick={() => handleInput('5')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="6" onClick={() => handleInput('6')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="x" onClick={() => handleInput('x')} className="bg-sky-50 text-sky-800 hover:bg-sky-100 dark:bg-yellow-700 dark:text-yellow-100 text-xl" />
-                    <Button label="1" onClick={() => handleInput('1')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="2" onClick={() => handleInput('2')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="3" onClick={() => handleInput('3')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="-" onClick={() => handleInput('-')} className="bg-sky-50 text-sky-800 hover:bg-sky-100 dark:bg-sky-800 dark:text-sky-100 text-2xl" />
-                    <Button icon={Settings} label={<LabelText text="Menu" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 font-bold" />
-                    <Button label="0" onClick={() => handleInput('0')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white" />
-                    <Button label="." onClick={() => handleInput('.')} className="bg-white shadow-sm hover:bg-gray-50 text-gray-900 dark:bg-slate-700 dark:text-white font-bold text-xl" />
-                    <Button label="+" onClick={() => handleInput('+')} className="bg-sky-50 text-sky-800 hover:bg-sky-100 dark:bg-teal-800 dark:text-teal-100 text-2xl" />
+                    <Button label="%" onClick={() => handleInput('%')} className="bg-violet-100 text-violet-800 active:bg-violet-200 dark:bg-fuchsia-800 dark:text-fuchsia-100 dark:active:bg-fuchsia-700 font-bold" />
+                    <Button label="7" onClick={() => handleInput('7')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="8" onClick={() => handleInput('8')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="9" onClick={() => handleInput('9')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="÷" onClick={() => handleInput('÷')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-lime-800 dark:text-lime-100 dark:active:bg-lime-700 text-2xl" />
+                    <Button label="4" onClick={() => handleInput('4')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="5" onClick={() => handleInput('5')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="6" onClick={() => handleInput('6')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="x" onClick={() => handleInput('x')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-yellow-700 dark:text-yellow-100 dark:active:bg-yellow-600 text-xl" />
+                    <Button label="1" onClick={() => handleInput('1')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="2" onClick={() => handleInput('2')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="3" onClick={() => handleInput('3')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="-" onClick={() => handleInput('-')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-sky-800 dark:text-sky-100 dark:active:bg-sky-700 text-2xl" />
+                    <Button icon={Settings} label={<LabelText text="Menu" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-gray-200 text-gray-800 active:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:active:bg-gray-600 font-bold" />
+                    <Button label="0" onClick={() => handleInput('0')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600" />
+                    <Button label="." onClick={() => handleInput('.')} className="bg-white shadow-sm active:bg-gray-100 text-gray-900 dark:bg-slate-700 dark:text-white dark:active:bg-slate-600 font-bold text-xl" />
+                    <Button label="+" onClick={() => handleInput('+')} className="bg-blue-100 text-blue-800 active:bg-blue-200 dark:bg-teal-800 dark:text-teal-100 dark:active:bg-teal-700 text-2xl" />
                 </div>
             </div>
         </div>
