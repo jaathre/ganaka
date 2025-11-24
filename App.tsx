@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
-    RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Palette, Percent, 
-    Check, Edit2, Trash2, Plus, Settings, Sun, Moon, Smartphone, Monitor, ArrowLeft, 
-    ChevronRight, Info, Github, Hash, Globe, Tag
+    RotateCcw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
+    Check, Edit2, Trash2, Plus, Settings, ArrowLeft, 
+    ChevronRight, Info, Github, Hash, Globe
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 
 import { Button } from './components/Button';
-import { ThemeOption } from './components/ThemeOption';
 import { ActiveLine } from './components/ActiveLine';
 import { CommittedLine } from './components/CommittedLine';
 import { formatNumber, evaluateExpression, triggerHaptic } from './utils';
-import { BillItem, ThemeColors, ThemeName, DecimalConfig, NumberFormat } from './types';
+import { BillItem, ThemeColors, DecimalConfig, NumberFormat } from './types';
 
 // --- Configuration & Globals ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -35,30 +34,11 @@ const THEME_COLORS: Record<string, ThemeColors> = {
         itemBorder: 'border-slate-100', menuItemHover: 'hover:bg-slate-50', 
         menuItemActive: 'bg-slate-100 text-black', activeLineBg: 'bg-white ring-1 ring-slate-100',
         displayBorder: 'border-slate-100'
-    },
-    dark: { 
-        bg: 'bg-gray-900', appBg: 'bg-gray-900', text: 'text-gray-100', subText: 'text-gray-400', 
-        border: 'border-gray-800', headerBg: 'bg-gray-900', tabBg: 'bg-gray-950', 
-        tabActive: 'bg-gray-800 text-white', tabInactive: 'text-gray-500 hover:bg-gray-800', 
-        keypadBg: 'bg-gray-900', totalBarBg: 'bg-gray-900', menuBg: 'bg-gray-900', 
-        itemBorder: 'border-gray-800', menuItemHover: 'hover:bg-gray-800', 
-        menuItemActive: 'bg-gray-800 text-white', activeLineBg: 'bg-gray-800/50 ring-1 ring-indigo-500/50',
-        displayBorder: 'border-gray-800'
-    },
-    black: { 
-        bg: 'bg-black', appBg: 'bg-black', text: 'text-gray-200', subText: 'text-gray-500', 
-        border: 'border-gray-800', headerBg: 'bg-black', tabBg: 'bg-black', 
-        tabActive: 'bg-gray-900 text-white border border-gray-800', 
-        tabInactive: 'text-gray-600 hover:text-gray-400', keypadBg: 'bg-black', 
-        totalBarBg: 'bg-black', menuBg: 'bg-black', itemBorder: 'border-gray-800', 
-        menuItemHover: 'hover:bg-gray-900', menuItemActive: 'bg-gray-900 text-white', 
-        activeLineBg: 'bg-gray-900 ring-1 ring-gray-700',
-        displayBorder: 'border-gray-800'
     }
 };
 
-const LabelText: React.FC<{ text: string; show: boolean }> = ({ text, show }) => 
-    show ? <span className="text-[10px] font-bold mt-0.5 leading-none opacity-60">{text}</span> : null;
+const LabelText: React.FC<{ text: string }> = ({ text }) => 
+    <span className="text-[10px] font-bold mt-0.5 leading-none opacity-60">{text}</span>;
 
 const App = () => {
     // --- State ---
@@ -70,12 +50,9 @@ const App = () => {
 
     // Settings State
     const [taxRate, setTaxRate] = useState(18); 
-    const [availableRates, setAvailableRates] = useState([5, 12, 18, 28]); 
-    const [theme, setTheme] = useState<string>('light'); 
-    const [systemTheme, setSystemTheme] = useState<ThemeName>('light');
+    const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
     const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>('auto');
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN');
-    const [showLabels, setShowLabels] = useState(false);
 
     // UI State
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -99,9 +76,7 @@ const App = () => {
     const grandTotal = billItems.reduce((sum, item) => sum + item.result, 0) + (activeItemId === null ? livePreview : 0);
     const emptyLines = Math.max(0, 3 - billItems.length - (activeItemId === null ? 1 : 0)); 
     
-    const activeThemeName = theme === 'system' ? systemTheme : (theme as 'light' | 'dark' | 'black');
-    const themeColors = THEME_COLORS[activeThemeName];
-    const currentPageStyle = PAGE_STYLES[currentPage % PAGE_STYLES.length];
+    const themeColors = THEME_COLORS.light;
 
     // --- Effects ---
     useEffect(() => {
@@ -119,14 +94,6 @@ const App = () => {
                 return () => unsubscribe();
             }
         } catch (e) { console.error("Firebase Init Error:", e); }
-    }, []);
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
-        const handler = (e: MediaQueryListEvent) => setSystemTheme(e.matches ? 'dark' : 'light');
-        mediaQuery.addListener(handler);
-        return () => mediaQuery.removeListener(handler);
     }, []);
 
     useEffect(() => {
@@ -318,28 +285,15 @@ const App = () => {
                             {menuView === 'main' && (
                                 <div className="space-y-2">
                                     {[
-                                        { id: 'themes', icon: Palette, label: 'Themes' },
                                         { id: 'taxRates', icon: Percent, label: 'Tax Rates' },
                                         { id: 'formatting', icon: Globe, label: 'Number System' },
                                         { id: 'decimals', icon: Hash, label: 'Decimal Places' },
-                                        { id: 'display', icon: Tag, label: 'Display' },
                                         { id: 'about', icon: Info, label: 'About' }
                                     ].map(item => (
                                         <button key={item.id} onClick={() => { triggerHaptic(); setMenuView(item.id); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
                                             <div className="flex items-center gap-3"><item.icon size={22} /> {item.label}</div><ChevronRight size={20} className="opacity-50" />
                                         </button>
                                     ))}
-                                </div>
-                            )}
-                            {menuView === 'themes' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Select Theme</h3>
-                                    <div className="space-y-3">
-                                        {['light', 'dark', 'black', 'system'].map(t => (
-                                            <ThemeOption key={t} id={t} label={t.charAt(0).toUpperCase() + t.slice(1) + (t==='black' ? ' (OLED)' : '')} icon={t==='light'?Sun:t==='dark'?Moon:t==='black'?Smartphone:Monitor} currentTheme={theme} setTheme={setTheme} themeColors={themeColors} />
-                                        ))}
-                                    </div>
                                 </div>
                             )}
                             {menuView === 'taxRates' && (
@@ -407,18 +361,6 @@ const App = () => {
                                     </div>
                                 </div>
                             )}
-                            {menuView === 'display' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Display Settings</h3>
-                                    <div className="space-y-3">
-                                        <button onClick={() => { triggerHaptic(); setShowLabels(!showLabels); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${showLabels ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
-                                            <div className="flex flex-col items-start"><span className="font-semibold text-lg">Button Labels</span><span className="text-xs opacity-60">Show text labels on icon buttons</span></div>
-                                            {showLabels && <Check size={20} />}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                             {menuView === 'about' && (
                                 <div className="space-y-4 animate-in slide-in-from-right duration-200">
                                     <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
@@ -428,7 +370,7 @@ const App = () => {
                                         <h2 className="text-2xl font-bold">GANAKA</h2>
                                         <p className={`opacity-70 ${themeColors.subText}`}>A powerful, intuitive calculator designed for rapid GST calculations and multi-page management.</p>
                                         <div className="pt-6 w-full">
-                                            <a href="https://github.com/" target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-2 p-4 rounded-xl w-full font-bold transition-colors border ${themeColors.border} ${themeColors.menuItemHover}`}>
+                                            <a href="https://github.com/jaathre" target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-2 p-4 rounded-xl w-full font-bold transition-colors border ${themeColors.border} ${themeColors.menuItemHover}`}>
                                                 <Github size={20} /> Visit GitHub
                                             </a>
                                         </div>
@@ -498,10 +440,10 @@ const App = () => {
             {/* --- Keypad --- */}
             <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300 mt-2`}>
                 {/* Row 1 */}
-                <Button icon={RotateCcw} label={<LabelText text="Clear" show={showLabels} />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
-                <Button icon={ChevronsLeft} label={<LabelText text="Line" show={showLabels} />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
-                <Button icon={ChevronLeft} label={<LabelText text="Back" show={showLabels} />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
-                <Button icon={CornerDownLeft} label={<LabelText text="Enter" show={showLabels} />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
+                <Button icon={RotateCcw} label={<LabelText text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                <Button icon={ChevronsLeft} label={<LabelText text="CLEAR" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
+                <Button icon={ChevronLeft} label={<LabelText text="DELETE" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
+                <Button icon={CornerDownLeft} label={<LabelText text="ENTER" />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
                 {/* Row 2 */}
                 <Button 
@@ -509,17 +451,17 @@ const App = () => {
                         <div className="flex flex-col items-center">
                             <div className="flex items-center justify-center gap-1">
                                 <ChevronLeft size={16} strokeWidth={3} className="opacity-40" />
-                                <span className="text-lg font-bold leading-none pt-0.5">{taxRate}%</span>
+                                <span className="text-xl font-bold leading-none pt-0.5">{taxRate}%</span>
                                 <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
                             </div>
-                            <LabelText text="Rate" show={showLabels} />
+                            <LabelText text="GST" />
                         </div>
                     } 
                     onClick={handleTaxButtonClick} 
                     className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
                 />
-                <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="Add" show={showLabels} /></div>} onClick={() => handleInput('TAX+')} className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" />
-                <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="Sub" show={showLabels} /></div>} onClick={() => handleInput('TAX-')} className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" />
+                <Button label={<div className="flex flex-col items-center"><span>GST+</span></div>} onClick={() => handleInput('TAX+')} className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" />
+                <Button label={<div className="flex flex-col items-center"><span>GST-</span></div>} onClick={() => handleInput('TAX-')} className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" />
                 <Button label="%" onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
                 
                 {/* Row 3 */}
@@ -541,7 +483,7 @@ const App = () => {
                 <Button label="-" onClick={() => handleInput('-')} className="bg-blue-200 text-black active:bg-blue-300 text-2xl" />
                 
                 {/* Row 6 */}
-                <Button icon={Settings} label={<LabelText text="Menu" show={showLabels} />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
+                <Button icon={Settings} label={<LabelText text="MENU" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
                 <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
                 <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />
                 <Button label="+" onClick={() => handleInput('+')} className="bg-purple-200 text-black active:bg-purple-300 text-2xl" />

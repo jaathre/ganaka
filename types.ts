@@ -45,7 +45,7 @@ export interface ThemeColors {
     displayBorder: string; // New field for the high-contrast display frame
 }
 
-export type ThemeName = 'light' | 'dark' | 'black' | 'system';
+export type ThemeName = 'light';
 
 export type DecimalConfig = 'auto' | number;
 
