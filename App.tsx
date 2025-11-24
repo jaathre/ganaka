@@ -460,7 +460,7 @@ const App = () => {
                                 className={`flex items-center justify-center w-full h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
                                     currentPage === idx 
                                     ? `${PAGE_STYLES[idx % PAGE_STYLES.length].bg} ${PAGE_STYLES[idx % PAGE_STYLES.length].text} shadow-sm scale-105` 
-                                    : `bg-slate-100 dark:bg-gray-700 text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-600`
+                                    : `bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50`
                                 }`}
                             >
                                 {idx + 1}
@@ -488,8 +488,8 @@ const App = () => {
                     </div>
                     
                     {/* Total Bar */}
-                    <div className={`flex items-center justify-between py-3 px-2 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
-                        <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.text}`}>TOTAL =</span>
+                    <div className={`flex items-center justify-between py-1.5 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
+                        <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.subText}`}>TOTAL =</span>
                         <span className={`text-2xl font-bold ${themeColors.text}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
                     </div>
                 </div>
