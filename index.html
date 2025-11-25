@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GANAKA</title>
+    <meta name="theme-color" content="#f8fafc">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='2' width='16' height='20' rx='2' ry='2'/%3E%3Cline x1='8' y1='6' x2='16' y2='6'/%3E%3Cline x1='16' y1='14' x2='16' y2='14'/%3E%3Cline x1='8' y1='14' x2='8' y2='14'/%3E%3Cline x1='12' y1='14' x2='12' y2='14'/%3E%3Cline x1='16' y1='18' x2='16' y2='18'/%3E%3Cline x1='8' y1='18' x2='8' y2='18'/%3E%3Cline x1='12' y1='18' x2='12' y2='18'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -11,6 +14,7 @@
         * { 
             -webkit-tap-highlight-color: transparent !important; 
             -webkit-touch-callout: none;
+            touch-action: manipulation;
         }
         button:focus { outline: none !important; }
         input:focus { outline: none !important; }
@@ -29,6 +33,15 @@
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => {
+                    console.log('SW registration failed: ', err);
+                });
+            });
+        }
+    </script>
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
