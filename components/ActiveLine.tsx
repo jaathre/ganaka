@@ -20,6 +20,7 @@ export const ActiveLine: React.FC<ActiveLineProps> = ({ currentInput, livePrevie
             className={`w-full bg-transparent outline-none text-2xl font-mono ${themeColors.text}`}
             value={currentInput}
             onChange={() => {}} 
+            onKeyDown={(e) => e.preventDefault()}
             autoFocus
          />
          <span className={`${themeColors.subText} text-xl font-medium whitespace-nowrap pl-2`}>

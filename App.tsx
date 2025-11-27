@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
     Check, Edit2, Trash2, Plus, Settings, ArrowLeft, 
-    ChevronRight, Info, Github, Hash, Globe
+    ChevronRight, Info, Github, Globe
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -51,7 +51,7 @@ const App = () => {
     // Settings State
     const [taxRate, setTaxRate] = useState(18); 
     const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
-    const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>('auto');
+    const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>(2);
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN');
 
     // UI State
@@ -294,7 +294,6 @@ const App = () => {
                                     {[
                                         { id: 'taxRates', icon: Percent, label: 'Tax Rates' },
                                         { id: 'formatting', icon: Globe, label: 'Number System' },
-                                        { id: 'decimals', icon: Hash, label: 'Decimal Places' },
                                         { id: 'about', icon: Info, label: 'About' }
                                     ].map(item => (
                                         <button key={item.id} onClick={() => { triggerHaptic(); setMenuView(item.id); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
@@ -343,26 +342,6 @@ const App = () => {
                                             <button key={opt.id} onClick={() => { triggerHaptic(); setNumberFormat(opt.id as NumberFormat); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${numberFormat === opt.id ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
                                                 <div className="flex flex-col items-start"><span className="font-semibold text-lg">{opt.label}</span><span className="text-xs opacity-60">{opt.desc}</span></div>
                                                 {numberFormat === opt.id && <Check size={20} />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {menuView === 'decimals' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Decimal Precision</h3>
-                                    <div className="space-y-3">
-                                        {[
-                                            { id: 'auto', label: 'Auto (Default)', desc: 'No trailing zeros' },
-                                            { id: 0, label: '0', desc: 'Integers only' },
-                                            { id: 2, label: '2', desc: 'Standard (0.00)' },
-                                            { id: 3, label: '3', desc: 'High precision (0.000)' },
-                                            { id: 4, label: '4', desc: 'Extra precision' }
-                                        ].map(opt => (
-                                            <button key={opt.id.toString()} onClick={() => { triggerHaptic(); setDecimalConfig(opt.id as DecimalConfig); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${decimalConfig === opt.id ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
-                                                <div className="flex flex-col items-start"><span className="font-semibold text-lg">{opt.label}</span><span className="text-xs opacity-60">{opt.desc}</span></div>
-                                                {decimalConfig === opt.id && <Check size={20} />}
                                             </button>
                                         ))}
                                     </div>

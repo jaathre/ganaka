@@ -9,13 +9,15 @@ export const formatNumber = (num: number | string, decimals: 'auto' | number = '
     if (decimals === 'auto') {
         opts.maximumFractionDigits = 10;
     } else {
-        opts.minimumFractionDigits = decimals;
+        // Change minimumFractionDigits to 0 to avoid forcing trailing zeros (e.g. 100.00 -> 100)
+        opts.minimumFractionDigits = 0;
         opts.maximumFractionDigits = decimals;
     }
 
     if (format === 'NONE') {
         if (decimals === 'auto') return parseFloat(n.toFixed(10)).toString();
-        return n.toFixed(decimals);
+        // Use parseFloat to strip unnecessary trailing zeros after fixing precision
+        return parseFloat(n.toFixed(decimals)).toString();
     }
 
     const locale = format === 'IN' ? 'en-IN' : 'en-US';
