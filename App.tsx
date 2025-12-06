@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
     Check, Edit2, Trash2, Plus, Settings, ArrowLeft, 
-    ChevronRight, Info, Github, Globe
+    ChevronRight, Info, Github, Globe, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -59,12 +59,17 @@ const App = () => {
     const [menuView, setMenuView] = useState('main'); 
     const [editingRateIndex, setEditingRateIndex] = useState<number | null>(null);
     const [newRateInput, setNewRateInput] = useState('');
+    const [isKeypadExpanded, setIsKeypadExpanded] = useState(true);
 
     // Refs
     const inputRef = useRef<HTMLInputElement>(null);
     const cursorPositionRef = useRef<number | null>(null);
     const editRateInputRef = useRef<HTMLInputElement>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
+    
+    // Long Press Refs
+    const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isLongPressRef = useRef(false);
     
     // Touch Handling State
     const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -163,6 +168,7 @@ const App = () => {
         setActiveItemId(item.id);
         setCurrentInput(item.expression); 
         cursorPositionRef.current = item.expression.length;
+        setIsKeypadExpanded(true); // Auto-expand when selecting a line to edit
     };
 
     const handleTaxCalculation = (isAdd: boolean) => {
@@ -237,12 +243,39 @@ const App = () => {
         setTouchEnd(null);
     };
 
-    const handleTaxButtonClick = () => {
-        triggerHaptic();
+    // --- Tax Rate Cycling Logic ---
+    const cycleTaxRate = () => {
         if (availableRates.length === 0) return;
-        const currentIndex = availableRates.indexOf(taxRate);
-        const nextIndex = (currentIndex + 1) % availableRates.length;
-        setTaxRate(availableRates[nextIndex]);
+        setTaxRate(prev => {
+            const currentIndex = availableRates.indexOf(prev);
+            const nextIndex = (currentIndex + 1) % availableRates.length;
+            return availableRates[nextIndex];
+        });
+    };
+
+    const handleTaxButtonDown = () => {
+        isLongPressRef.current = false;
+        longPressTimerRef.current = setTimeout(() => {
+            isLongPressRef.current = true;
+            triggerHaptic();
+            cycleTaxRate();
+        }, 500);
+    };
+
+    const handleTaxButtonUp = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
+
+    const handleTaxAction = (isAdd: boolean) => {
+        if (isLongPressRef.current) {
+            isLongPressRef.current = false;
+            // Prevent standard calculation if long press occurred
+            return;
+        }
+        handleTaxCalculation(isAdd);
     };
 
     const handleSaveEditedRate = (index: number) => {
@@ -415,8 +448,20 @@ const App = () => {
                         <div ref={listEndRef} />
                     </div>
                     
-                    {/* Total Bar */}
-                    <div className={`flex items-center justify-between py-1.5 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
+                    {/* Total Bar with Floating Toggle */}
+                    <div className={`relative flex items-center justify-between py-1.5 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
+                        <button 
+                            onClick={() => {
+                                triggerHaptic();
+                                setIsKeypadExpanded(!isKeypadExpanded);
+                            }}
+                            className={`absolute left-1/2 -translate-x-1/2 -top-5 w-14 h-6 flex items-center justify-center 
+                                        bg-white border border-b-0 ${themeColors.border} rounded-t-lg shadow-sm 
+                                        text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors z-20`}
+                            aria-label={isKeypadExpanded ? "Minimize keypad" : "Expand keypad"}
+                        >
+                            {isKeypadExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
+                        </button>
                         <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.subText}`}>TOTAL =</span>
                         <span className={`text-2xl font-bold ${themeColors.text}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
                     </div>
@@ -424,56 +469,63 @@ const App = () => {
             </div>
 
             {/* --- Keypad --- */}
-            <div className={`${themeColors.keypadBg} p-3 grid grid-cols-4 gap-2 border-t ${themeColors.border} pb-6 transition-colors duration-300 mt-2`}>
-                {/* Row 1 */}
-                <Button icon={RefreshCw} label={<LabelText text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
-                <Button icon={ChevronsLeft} label={<LabelText text="CLEAR" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
-                <Button icon={ChevronLeft} label={<LabelText text="DELETE" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
-                <Button icon={CornerDownLeft} label={<LabelText text="ENTER" />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
+            {isKeypadExpanded && (
+                <div className={`${themeColors.keypadBg} flex flex-col border-t ${themeColors.border} transition-colors duration-300`}>
+                    <div className="p-3 pt-3 grid grid-cols-4 gap-2 pb-6 animate-in slide-in-from-bottom-2 duration-200">
+                        {/* Row 1 */}
+                        <Button icon={RefreshCw} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                        <Button icon={ChevronsLeft} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
+                        <Button icon={ChevronLeft} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
+                        <Button icon={CornerDownLeft} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
-                {/* Row 2 */}
-                <Button 
-                    label={
-                        <div className="flex flex-col items-center">
-                            <div className="flex items-center justify-center gap-1">
-                                <ChevronLeft size={16} strokeWidth={3} className="opacity-40" />
-                                <span className="text-xl font-bold leading-none">{taxRate}%</span>
-                                <ChevronRight size={16} strokeWidth={3} className="opacity-40" />
-                            </div>
-                            <LabelText text="GST" />
-                        </div>
-                    } 
-                    onClick={handleTaxButtonClick} 
-                    className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
-                />
-                <Button label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text="PLUS" /></div>} onClick={() => handleInput('TAX+')} className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" />
-                <Button label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text="MINUS" /></div>} onClick={() => handleInput('TAX-')} className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" />
-                <Button label={<div className="flex flex-col items-center"><span className="text-xl">%</span><LabelText text="PERCENT" /></div>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
-                
-                {/* Row 3 */}
-                <Button label="7" onClick={() => handleInput('7')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="8" onClick={() => handleInput('8')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="9" onClick={() => handleInput('9')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="÷" onClick={() => handleInput('÷')} className="bg-indigo-200 text-black active:bg-indigo-300 text-2xl" />
-                
-                {/* Row 4 */}
-                <Button label="4" onClick={() => handleInput('4')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="5" onClick={() => handleInput('5')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="6" onClick={() => handleInput('6')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="x" onClick={() => handleInput('x')} className="bg-cyan-200 text-black active:bg-cyan-300 text-xl" />
-                
-                {/* Row 5 */}
-                <Button label="1" onClick={() => handleInput('1')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="2" onClick={() => handleInput('2')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="3" onClick={() => handleInput('3')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="-" onClick={() => handleInput('-')} className="bg-blue-200 text-black active:bg-blue-300 text-2xl" />
-                
-                {/* Row 6 */}
-                <Button icon={Settings} label={<LabelText text="GANAKA" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
-                <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
-                <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />
-                <Button label="+" onClick={() => handleInput('+')} className="bg-purple-200 text-black active:bg-purple-300 text-2xl" />
-            </div>
+                        {/* Row 2 */}
+                        <Button 
+                            label={<span className="text-xl tracking-widest font-bold">( )</span>} 
+                            onClick={() => handleInput('()')} 
+                            className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
+                        />
+                        <Button 
+                            label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text={`${taxRate}%`} /></div>} 
+                            onClick={() => handleTaxAction(true)} 
+                            onPointerDown={handleTaxButtonDown}
+                            onPointerUp={handleTaxButtonUp}
+                            className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" 
+                        />
+                        <Button 
+                            label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text={`${taxRate}%`} /></div>} 
+                            onClick={() => handleTaxAction(false)} 
+                            onPointerDown={handleTaxButtonDown}
+                            onPointerUp={handleTaxButtonUp}
+                            className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" 
+                        />
+                        <Button label={<span className="text-xl font-bold">%</span>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
+                        
+                        {/* Row 3 */}
+                        <Button label="7" onClick={() => handleInput('7')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="8" onClick={() => handleInput('8')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="9" onClick={() => handleInput('9')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="÷" onClick={() => handleInput('÷')} className="bg-indigo-200 text-black active:bg-indigo-300 text-2xl" />
+                        
+                        {/* Row 4 */}
+                        <Button label="4" onClick={() => handleInput('4')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="5" onClick={() => handleInput('5')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="6" onClick={() => handleInput('6')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="x" onClick={() => handleInput('x')} className="bg-cyan-200 text-black active:bg-cyan-300 text-xl" />
+                        
+                        {/* Row 5 */}
+                        <Button label="1" onClick={() => handleInput('1')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="2" onClick={() => handleInput('2')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="3" onClick={() => handleInput('3')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="-" onClick={() => handleInput('-')} className="bg-blue-200 text-black active:bg-blue-300 text-2xl" />
+                        
+                        {/* Row 6 */}
+                        <Button icon={Settings} label={<LabelText text="GANAKA" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
+                        <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
+                        <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />
+                        <Button label="+" onClick={() => handleInput('+')} className="bg-purple-200 text-black active:bg-purple-300 text-2xl" />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
