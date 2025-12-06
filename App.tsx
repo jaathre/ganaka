@@ -485,18 +485,28 @@ const App = () => {
                             className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
                         />
                         <Button 
-                            label={<div className="flex flex-col items-center"><span>GST+</span><LabelText text={`${taxRate}%`} /></div>} 
+                            label={
+                                <div className="flex flex-col items-center justify-center">
+                                    <span className="text-[11px] font-extrabold opacity-60 leading-none mb-0.5">+{taxRate}%</span>
+                                    <span className="text-xl font-bold leading-none">GST</span>
+                                </div>
+                            } 
                             onClick={() => handleTaxAction(true)} 
                             onPointerDown={handleTaxButtonDown}
                             onPointerUp={handleTaxButtonUp}
-                            className="bg-teal-200 text-black active:bg-teal-300 text-sm font-bold" 
+                            className="bg-teal-200 text-black active:bg-teal-300 shadow-sm" 
                         />
                         <Button 
-                            label={<div className="flex flex-col items-center"><span>GST-</span><LabelText text={`${taxRate}%`} /></div>} 
+                            label={
+                                <div className="flex flex-col items-center justify-center">
+                                    <span className="text-[11px] font-extrabold opacity-60 leading-none mb-0.5">-{taxRate}%</span>
+                                    <span className="text-xl font-bold leading-none">GST</span>
+                                </div>
+                            } 
                             onClick={() => handleTaxAction(false)} 
                             onPointerDown={handleTaxButtonDown}
                             onPointerUp={handleTaxButtonUp}
-                            className="bg-rose-200 text-black active:bg-rose-300 text-sm font-bold" 
+                            className="bg-rose-200 text-black active:bg-rose-300 shadow-sm" 
                         />
                         <Button label={<span className="text-xl font-bold">%</span>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
                         

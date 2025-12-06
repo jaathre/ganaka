@@ -24,6 +24,101 @@ export const formatNumber = (num: number | string, decimals: 'auto' | number = '
     return new Intl.NumberFormat(locale, opts).format(n);
 };
 
+const calculateBODMAS = (expr: string): number => {
+    // Custom Shunting Yard Algorithm Implementation
+    // Precedence: u (unary) > *, / > +, -
+    const ops: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, 'u': 3 };
+    const tokens: (number | string)[] = [];
+    let num = '';
+    
+    // 1. Tokenizer
+    for (let i = 0; i < expr.length; i++) {
+        const c = expr[i];
+        if (/\s/.test(c)) {
+            if (num) { tokens.push(parseFloat(num)); num = ''; }
+            continue;
+        }
+        
+        if (/[0-9.]/.test(c)) {
+            num += c;
+        } else if ('+-*/()'.includes(c)) {
+            if (num) { tokens.push(parseFloat(num)); num = ''; }
+            
+            // Handle Unary Minus: '-' is unary if it's start of expr, or follows an operator or '('
+            // Note: tokens[tokens.length - 1] check handles previous token context
+            const lastToken = tokens[tokens.length - 1];
+            const isUnary = c === '-' && (tokens.length === 0 || (typeof lastToken === 'string' && lastToken !== ')'));
+            
+            if (isUnary) {
+                 tokens.push('u');
+            } else {
+                 tokens.push(c);
+            }
+        }
+    }
+    if (num) tokens.push(parseFloat(num));
+
+    // 2. Infix to Postfix (RPN)
+    const output: (number | string)[] = [];
+    const stack: string[] = [];
+    
+    for (const token of tokens) {
+        if (typeof token === 'number') {
+            output.push(token);
+        } else if (token === '(') {
+            stack.push(token);
+        } else if (token === ')') {
+            while (stack.length && stack[stack.length - 1] !== '(') {
+                const op = stack.pop();
+                if (op) output.push(op);
+            }
+            stack.pop(); // Pop '('
+        } else { // Operator
+            const currentOp = token as string;
+            while (
+                stack.length && 
+                stack[stack.length - 1] !== '(' &&
+                ops[currentOp] <= ops[stack[stack.length - 1]] &&
+                currentOp !== 'u' // Unary usually right-associative, simplified here
+            ) {
+                const op = stack.pop();
+                if (op) output.push(op);
+            }
+            stack.push(currentOp);
+        }
+    }
+    while (stack.length) {
+        const op = stack.pop();
+        if (op) output.push(op);
+    }
+
+    // 3. Evaluation
+    const res: number[] = [];
+    for (const token of output) {
+        if (typeof token === 'number') {
+            res.push(token);
+        } else if (token === 'u') {
+            const a = res.pop();
+            if (a === undefined) throw new Error("Invalid Expression");
+            res.push(-a);
+        } else {
+            const b = res.pop();
+            const a = res.pop();
+            if (a === undefined || b === undefined) throw new Error("Invalid Expression");
+            
+            switch (token) {
+                case '+': res.push(a + b); break;
+                case '-': res.push(a - b); break;
+                case '*': res.push(a * b); break;
+                case '/': res.push(b === 0 ? 0 : a / b); break;
+            }
+        }
+    }
+    
+    if (res.length !== 1) throw new Error("Invalid Expression");
+    return res[0];
+};
+
 export const evaluateExpression = (expr: string): number => {
     try {
         if (!expr) return 0;
@@ -35,10 +130,8 @@ export const evaluateExpression = (expr: string): number => {
         // Handle remaining percentage operations (e.g. 50*10% or just 20%)
         cleanExpr = cleanExpr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
         
-        // Security check: only allow digits and math operators
-        if (/[^0-9+\-*/().\s]/.test(cleanExpr)) return 0;
-        // eslint-disable-next-line no-new-func
-        const result = new Function('return ' + cleanExpr)();
+        // Use custom BODMAS parser instead of new Function
+        const result = calculateBODMAS(cleanExpr);
         return isFinite(result) ? result : 0;
     } catch {
         return 0;
