@@ -67,10 +67,6 @@ const App = () => {
     const editRateInputRef = useRef<HTMLInputElement>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
     
-    // Long Press Refs
-    const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isLongPressRef = useRef(false);
-    
     // Touch Handling State
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -171,11 +167,12 @@ const App = () => {
         setIsKeypadExpanded(true); // Auto-expand when selecting a line to edit
     };
 
-    const handleTaxCalculation = (isAdd: boolean) => {
+    const handleTaxCalculation = (isAdd: boolean, rateOverride?: number) => {
+        const rateToUse = rateOverride !== undefined ? rateOverride : taxRate;
         const baseVal = evaluateExpression(currentInput);
         if (baseVal === 0 && currentInput === '') return;
         
-        const rateDecimal = taxRate / 100;
+        const rateDecimal = rateToUse / 100;
         const finalVal = isAdd ? baseVal * (1 + rateDecimal) : baseVal / (1 + rateDecimal);
         const taxAmount = isAdd ? finalVal - baseVal : baseVal - finalVal;
 
@@ -185,8 +182,8 @@ const App = () => {
             result: finalVal,         
             mode: 'GST',
             type: isAdd ? 'add' : 'remove',
-            rate: taxRate,
-            details: { base: baseVal, rate: taxRate, taxAmt: taxAmount }
+            rate: rateToUse,
+            details: { base: baseVal, rate: rateToUse, taxAmt: taxAmount }
         };
 
         updateCurrentPageItems([...billItems, newItem]);
@@ -223,6 +220,7 @@ const App = () => {
                 const lastChar = currentInput.slice(-1);
                 insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
                 break;
+            // Legacy generic tax handlers if needed, though buttons are removed
             case 'TAX+': handleTaxCalculation(true); break;
             case 'TAX-': handleTaxCalculation(false); break;
             default: insertAtCursor(value);
@@ -241,41 +239,6 @@ const App = () => {
         }
         setTouchStart(null);
         setTouchEnd(null);
-    };
-
-    // --- Tax Rate Cycling Logic ---
-    const cycleTaxRate = () => {
-        if (availableRates.length === 0) return;
-        setTaxRate(prev => {
-            const currentIndex = availableRates.indexOf(prev);
-            const nextIndex = (currentIndex + 1) % availableRates.length;
-            return availableRates[nextIndex];
-        });
-    };
-
-    const handleTaxButtonDown = () => {
-        isLongPressRef.current = false;
-        longPressTimerRef.current = setTimeout(() => {
-            isLongPressRef.current = true;
-            triggerHaptic();
-            cycleTaxRate();
-        }, 500);
-    };
-
-    const handleTaxButtonUp = () => {
-        if (longPressTimerRef.current) {
-            clearTimeout(longPressTimerRef.current);
-            longPressTimerRef.current = null;
-        }
-    };
-
-    const handleTaxAction = (isAdd: boolean) => {
-        if (isLongPressRef.current) {
-            isLongPressRef.current = false;
-            // Prevent standard calculation if long press occurred
-            return;
-        }
-        handleTaxCalculation(isAdd);
     };
 
     const handleSaveEditedRate = (index: number) => {
@@ -478,36 +441,26 @@ const App = () => {
                         <Button icon={ChevronLeft} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
                         <Button icon={CornerDownLeft} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
-                        {/* Row 2 */}
-                        <Button 
-                            label={<span className="text-xl tracking-widest font-bold">( )</span>} 
-                            onClick={() => handleInput('()')} 
-                            className="bg-violet-200 text-black active:bg-violet-300 shadow-sm" 
-                        />
-                        <Button 
-                            label={
-                                <div className="flex flex-col items-center justify-center">
-                                    <span className="text-[11px] font-extrabold opacity-60 leading-none mb-0.5">+{taxRate}%</span>
-                                    <span className="text-xl font-bold leading-none">GST</span>
-                                </div>
-                            } 
-                            onClick={() => handleTaxAction(true)} 
-                            onPointerDown={handleTaxButtonDown}
-                            onPointerUp={handleTaxButtonUp}
-                            className="bg-teal-200 text-black active:bg-teal-300 shadow-sm" 
-                        />
-                        <Button 
-                            label={
-                                <div className="flex flex-col items-center justify-center">
-                                    <span className="text-[11px] font-extrabold opacity-60 leading-none mb-0.5">-{taxRate}%</span>
-                                    <span className="text-xl font-bold leading-none">GST</span>
-                                </div>
-                            } 
-                            onClick={() => handleTaxAction(false)} 
-                            onPointerDown={handleTaxButtonDown}
-                            onPointerUp={handleTaxButtonUp}
-                            className="bg-rose-200 text-black active:bg-rose-300 shadow-sm" 
-                        />
+                        {/* Row 2: Specific Tax Rates + Percent */}
+                        {availableRates.slice(0, 3).map((rate) => (
+                            <div key={rate} className="flex flex-col h-16 gap-1">
+                                <button 
+                                    onClick={() => { triggerHaptic(); handleTaxCalculation(true, rate); }}
+                                    className="flex-1 bg-teal-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-teal-300 flex items-center justify-center"
+                                >
+                                    +{rate}%
+                                </button>
+                                <button 
+                                    onClick={() => { triggerHaptic(); handleTaxCalculation(false, rate); }}
+                                    className="flex-1 bg-rose-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-rose-300 flex items-center justify-center"
+                                >
+                                    -{rate}%
+                                </button>
+                            </div>
+                        ))}
+                        {/* If less than 3 rates, this will leave a gap, but default is 3 so it matches the sketch. */}
+                        {availableRates.length < 3 && Array.from({ length: 3 - availableRates.length }).map((_, i) => <div key={i} />)}
+                        
                         <Button label={<span className="text-xl font-bold">%</span>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
                         
                         {/* Row 3 */}
