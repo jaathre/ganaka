@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
-    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, X, Percent, 
-    Check, Edit2, Trash2, Plus, Settings, ArrowLeft, 
-    ChevronRight, Info, Github, Globe, ChevronDown, ChevronUp
+    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, Percent, 
+    ChevronDown, ChevronUp, Copy, ClipboardPaste, Parentheses
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -10,7 +9,7 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import { Button } from './components/Button';
 import { ActiveLine } from './components/ActiveLine';
 import { CommittedLine } from './components/CommittedLine';
-import { formatNumber, evaluateExpression, triggerHaptic } from './utils';
+import { formatNumber, evaluateExpression, triggerHaptic, copyToClipboard } from './utils';
 import { BillItem, ThemeColors, DecimalConfig, NumberFormat } from './types';
 
 // --- Configuration & Globals ---
@@ -37,8 +36,11 @@ const THEME_COLORS: Record<string, ThemeColors> = {
     }
 };
 
-const LabelText: React.FC<{ text: string }> = ({ text }) => 
-    <span className="text-[9px] font-bold mt-1.5 leading-none opacity-60">{text}</span>;
+const LabelText: React.FC<{ top: string; bottom: string }> = ({ top, bottom }) => 
+    <div className="flex flex-col items-center leading-none">
+        <span className="text-sm font-black tracking-wide uppercase">{top}</span>
+        <span className="text-[10px] font-bold tracking-wider uppercase mt-1 opacity-60">{bottom}</span>
+    </div>;
 
 const App = () => {
     // --- State ---
@@ -48,23 +50,19 @@ const App = () => {
     const [activeItemId, setActiveItemId] = useState<number | null>(null); 
     const [, setUserId] = useState<string | null>(null);
 
-    // Settings State
-    const [taxRate, setTaxRate] = useState(18); 
-    const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
-    const [decimalConfig, setDecimalConfig] = useState<DecimalConfig>(2);
-    const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN');
+    // Modes & Settings
+    const [isGstMode, setIsGstMode] = useState(false);
+    const [taxRate, ] = useState(18); // Default fixed, since settings removed
+    const [availableRates, ] = useState([5, 18, 40]); // Default fixed
+    const [decimalConfig, ] = useState<DecimalConfig>(2); // Default
+    const [numberFormat, ] = useState<NumberFormat>('IN'); // Default
 
     // UI State
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [menuView, setMenuView] = useState('main'); 
-    const [editingRateIndex, setEditingRateIndex] = useState<number | null>(null);
-    const [newRateInput, setNewRateInput] = useState('');
     const [isKeypadExpanded, setIsKeypadExpanded] = useState(true);
 
     // Refs
     const inputRef = useRef<HTMLInputElement>(null);
     const cursorPositionRef = useRef<number | null>(null);
-    const editRateInputRef = useRef<HTMLInputElement>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
     
     // Touch Handling State
@@ -108,17 +106,6 @@ const App = () => {
             cursorPositionRef.current = null; 
         }
     });
-
-    useEffect(() => {
-        if (!isMenuOpen) {
-            const timer = setTimeout(() => {
-                setMenuView('main');
-                setEditingRateIndex(null);
-                setNewRateInput('');
-            }, 200);
-            return () => clearTimeout(timer);
-        }
-    }, [isMenuOpen]);
 
     // --- Handlers ---
     const updateCurrentPageItems = (newItems: BillItem[]) => {
@@ -191,6 +178,29 @@ const App = () => {
         cursorPositionRef.current = 0;
     };
 
+    const handleCopy = () => {
+        let val = 0;
+        if (activeItemId !== null) {
+            const item = billItems.find(i => i.id === activeItemId);
+            if (item) val = item.result;
+        } else if (currentInput) {
+            val = livePreview;
+        } else {
+            val = grandTotal;
+        }
+        copyToClipboard(val.toString());
+    };
+
+    const handlePaste = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) insertAtCursor(text);
+        } catch (e) {
+            // Fallback for some browsers if needed, but readText is standard now
+            console.error(e);
+        }
+    };
+
     const handleInput = (value: string) => {
         if (inputRef.current) inputRef.current.focus();
 
@@ -220,9 +230,6 @@ const App = () => {
                 const lastChar = currentInput.slice(-1);
                 insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
                 break;
-            // Legacy generic tax handlers if needed, though buttons are removed
-            case 'TAX+': handleTaxCalculation(true); break;
-            case 'TAX-': handleTaxCalculation(false); break;
             default: insertAtCursor(value);
         }
     };
@@ -241,131 +248,8 @@ const App = () => {
         setTouchEnd(null);
     };
 
-    const handleSaveEditedRate = (index: number) => {
-        triggerHaptic();
-        if (!editRateInputRef.current) return;
-        const val = parseFloat(editRateInputRef.current.value);
-        if (!isNaN(val) && val >= 0) {
-            const newRates = [...availableRates];
-            newRates[index] = val;
-            setAvailableRates(newRates.sort((a, b) => a - b));
-            if (availableRates[index] === taxRate) setTaxRate(val);
-        }
-        setEditingRateIndex(null);
-    };
-    
-    const handleAddRate = () => {
-        triggerHaptic();
-        const val = parseFloat(newRateInput);
-        if (!isNaN(val) && val >= 0 && !availableRates.includes(val)) {
-            setAvailableRates([...availableRates, val].sort((a, b) => a - b));
-            setNewRateInput('');
-        }
-    };
-    
-    const handleDeleteRate = (index: number) => {
-        triggerHaptic();
-        if (availableRates.length <= 1) return;
-        const rateToDelete = availableRates[index];
-        const newRates = availableRates.filter((_, i) => i !== index);
-        setAvailableRates(newRates);
-        if (taxRate === rateToDelete) setTaxRate(newRates[0]);
-    };
-
     return (
         <div className={`w-full h-[100dvh] ${themeColors.appBg} overflow-hidden flex flex-col relative transition-colors duration-300`}>
-            
-            {/* --- Menu Overlay --- */}
-            {isMenuOpen && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => { triggerHaptic(); setIsMenuOpen(false); }} />
-                    <div className={`relative w-[90%] max-w-sm max-h-[80vh] rounded-2xl shadow-2xl p-6 flex flex-col animate-in fade-in zoom-in duration-200 ${themeColors.menuBg} ${themeColors.text}`}>
-                        <div className="flex justify-center items-center mb-6 relative">
-                            <h2 className="text-2xl font-bold">GANAKA</h2>
-                            <button onClick={() => { triggerHaptic(); setIsMenuOpen(false); }} className="absolute right-0 p-2 rounded-full hover:opacity-80 outline-none"><X size={24} /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto no-scrollbar">
-                            {menuView === 'main' && (
-                                <div className="space-y-2">
-                                    {[
-                                        { id: 'taxRates', icon: Percent, label: 'Tax Rates' },
-                                        { id: 'formatting', icon: Globe, label: 'Number System' },
-                                        { id: 'about', icon: Info, label: 'About' }
-                                    ].map(item => (
-                                        <button key={item.id} onClick={() => { triggerHaptic(); setMenuView(item.id); }} className={`flex items-center justify-between w-full p-4 rounded-xl text-lg font-medium transition-colors outline-none ${themeColors.text} ${themeColors.menuItemHover}`}>
-                                            <div className="flex items-center gap-3"><item.icon size={22} /> {item.label}</div><ChevronRight size={20} className="opacity-50" />
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            {menuView === 'taxRates' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Manage Tax Rates</h3>
-                                    <div className="space-y-3 mb-6">
-                                        {availableRates.map((rate, index) => (
-                                            <div key={index} className={`flex items-center justify-between p-3 rounded-lg border ${themeColors.itemBorder} ${themeColors.menuItemHover}`}>
-                                                {editingRateIndex === index ? (
-                                                    <input ref={editRateInputRef} type="number" autoFocus defaultValue={rate} onKeyDown={(e) => e.key === 'Enter' && handleSaveEditedRate(index)} className={`w-20 p-1 bg-transparent border-b-2 border-indigo-500 outline-none font-bold text-lg ${themeColors.text}`} />
-                                                ) : <span className="font-bold text-lg">{rate}%</span>}
-                                                <div className="flex items-center gap-2">
-                                                    {editingRateIndex === index ? (
-                                                        <button onClick={() => handleSaveEditedRate(index)} className="p-2 text-green-500 hover:bg-green-50 rounded-full outline-none"><Check size={18}/></button>
-                                                    ) : <button onClick={() => { triggerHaptic(); setEditingRateIndex(index); }} className={`p-2 hover:opacity-70 rounded-full outline-none ${themeColors.text}`}><Edit2 size={16}/></button>}
-                                                    <button onClick={() => handleDeleteRate(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full outline-none"><Trash2 size={16}/></button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className={`p-4 rounded-xl border-2 border-dashed ${themeColors.itemBorder} ${themeColors.menuItemHover}`}>
-                                        <div className="flex items-center gap-2">
-                                            <input type="number" value={newRateInput} onChange={(e) => setNewRateInput(e.target.value)} placeholder="Add Rate %" className={`flex-1 bg-transparent outline-none font-medium ${themeColors.text}`} onKeyDown={(e) => e.key === 'Enter' && handleAddRate()} />
-                                            <button onClick={handleAddRate} disabled={!newRateInput} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 outline-none"><Plus size={20} /></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {menuView === 'formatting' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>Number System</h3>
-                                    <div className="space-y-3">
-                                        {[
-                                            { id: 'IN', label: 'Indian', desc: 'Lakhs & Crores (1,23,456.78)' },
-                                            { id: 'INTL', label: 'International', desc: 'Millions (123,456.78)' },
-                                            { id: 'NONE', label: 'None', desc: 'Raw number (123456.78)' }
-                                        ].map(opt => (
-                                            <button key={opt.id} onClick={() => { triggerHaptic(); setNumberFormat(opt.id as NumberFormat); }} className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all outline-none ${numberFormat === opt.id ? themeColors.menuItemActive + ' border-transparent' : themeColors.itemBorder + ' ' + themeColors.text + ' ' + themeColors.menuItemHover}`}>
-                                                <div className="flex flex-col items-start"><span className="font-semibold text-lg">{opt.label}</span><span className="text-xs opacity-60">{opt.desc}</span></div>
-                                                {numberFormat === opt.id && <Check size={20} />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {menuView === 'about' && (
-                                <div className="space-y-4 animate-in slide-in-from-right duration-200">
-                                    <button onClick={() => { triggerHaptic(); setMenuView('main'); }} className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 opacity-70 hover:opacity-100 outline-none ${themeColors.text}`}><ArrowLeft size={16} /> Back</button>
-                                    <h3 className={`text-xl font-bold mb-4 ${themeColors.text}`}>About</h3>
-                                    <div className="flex flex-col items-center text-center space-y-4 py-8">
-                                        <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">G</div>
-                                        <h2 className="text-2xl font-bold">GANAKA</h2>
-                                        <p className={`opacity-70 ${themeColors.subText}`}>A powerful, intuitive calculator designed for rapid GST calculations and multi-page management.</p>
-                                        <div className="pt-6 w-full">
-                                            <a href="https://github.com/jaathre" target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-2 p-4 rounded-xl w-full font-bold transition-colors border ${themeColors.border} ${themeColors.menuItemHover}`}>
-                                                <Github size={20} /> Visit GitHub
-                                            </a>
-                                        </div>
-                                        <p className="text-xs opacity-40 pt-8">Version 1.6.0</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <div className={`mt-auto pt-6 border-t ${themeColors.border}`}><p className="text-xs text-center opacity-50">Designed with ❤️</p></div>
-                    </div>
-                </div>
-            )}
-
             {/* --- Main Content --- */}
             <div className={`flex-1 flex flex-col overflow-hidden relative`}>
                 <div className={`flex flex-col flex-1 overflow-hidden`}>
@@ -441,25 +325,34 @@ const App = () => {
                         <Button icon={ChevronLeft} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
                         <Button icon={CornerDownLeft} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
-                        {/* Row 2: Specific Tax Rates + Percent */}
-                        {availableRates.slice(0, 3).map((rate) => (
-                            <div key={rate} className="flex flex-col h-16 gap-1">
-                                <button 
-                                    onClick={() => { triggerHaptic(); handleTaxCalculation(true, rate); }}
-                                    className="flex-1 bg-teal-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-teal-300 flex items-center justify-center"
-                                >
-                                    +{rate}%
-                                </button>
-                                <button 
-                                    onClick={() => { triggerHaptic(); handleTaxCalculation(false, rate); }}
-                                    className="flex-1 bg-rose-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-rose-300 flex items-center justify-center"
-                                >
-                                    -{rate}%
-                                </button>
-                            </div>
-                        ))}
-                        {/* If less than 3 rates, this will leave a gap, but default is 3 so it matches the sketch. */}
-                        {availableRates.length < 3 && Array.from({ length: 3 - availableRates.length }).map((_, i) => <div key={i} />)}
+                        {/* Row 2: Mode Specific */}
+                        {isGstMode ? (
+                            availableRates.slice(0, 3).map((rate) => (
+                                <div key={rate} className="flex flex-col h-16 gap-1">
+                                    <button 
+                                        onClick={() => { triggerHaptic(); handleTaxCalculation(true, rate); }}
+                                        className="flex-1 bg-teal-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-teal-300 flex items-center justify-center"
+                                    >
+                                        +{rate}%
+                                    </button>
+                                    <button 
+                                        onClick={() => { triggerHaptic(); handleTaxCalculation(false, rate); }}
+                                        className="flex-1 bg-rose-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-rose-300 flex items-center justify-center"
+                                    >
+                                        -{rate}%
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <>
+                                <Button icon={Parentheses} onClick={() => handleInput('()')} className="bg-violet-200 text-black active:bg-violet-300 font-bold" />
+                                <Button icon={Copy} onClick={handleCopy} className="bg-yellow-200 text-black active:bg-yellow-300 font-bold" />
+                                <Button icon={ClipboardPaste} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
+                            </>
+                        )}
+                        
+                        {/* Gap filler if gst mode has fewer rates (unlikely with default 3) */}
+                        {isGstMode && availableRates.length < 3 && Array.from({ length: 3 - availableRates.length }).map((_, i) => <div key={i} />)}
                         
                         <Button label={<span className="text-xl font-bold">%</span>} onClick={() => handleInput('%')} className="bg-sky-200 text-black active:bg-sky-300 font-bold" />
                         
@@ -482,7 +375,11 @@ const App = () => {
                         <Button label="-" onClick={() => handleInput('-')} className="bg-blue-200 text-black active:bg-blue-300 text-2xl" />
                         
                         {/* Row 6 */}
-                        <Button icon={Settings} label={<LabelText text="GANAKA" />} onClick={() => { triggerHaptic(); setIsMenuOpen(true); }} className="bg-stone-200 text-black active:bg-stone-300 font-bold" />
+                        <Button 
+                            label={<LabelText top={isGstMode ? "GST" : "BASIC"} bottom="MODE" />} 
+                            onClick={() => { triggerHaptic(); setIsGstMode(!isGstMode); }} 
+                            className={`${isGstMode ? 'bg-green-100 text-green-900 ring-1 ring-green-200' : 'bg-gray-100 text-gray-900 ring-1 ring-gray-200'} active:scale-95 transition-all`} 
+                        />
                         <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
                         <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />
                         <Button label="+" onClick={() => handleInput('+')} className="bg-purple-200 text-black active:bg-purple-300 text-2xl" />
