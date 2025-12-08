@@ -150,7 +150,7 @@ export const copyToClipboard = (text: string): void => {
 export const triggerHaptic = (): void => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
         try {
-            navigator.vibrate(15);
+            navigator.vibrate(10);
         } catch (e) {
             // Ignore errors if vibration is not supported or allowed
         }

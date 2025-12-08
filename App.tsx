@@ -179,22 +179,19 @@ const App = () => {
     };
 
     const handleCopy = () => {
-        let val = 0;
-        if (activeItemId !== null) {
-            const item = billItems.find(i => i.id === activeItemId);
-            if (item) val = item.result;
-        } else if (currentInput) {
-            val = livePreview;
-        } else {
-            val = grandTotal;
-        }
-        copyToClipboard(val.toString());
+        // Always copy the grand total (page total) to clipboard
+        copyToClipboard(grandTotal.toString());
     };
 
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
-            if (text) insertAtCursor(text);
+            if (text) {
+                // Strip commas, currency symbols, and other non-math characters
+                // Preserves digits, decimals, operators, parentheses, and %
+                const sanitized = text.replace(/[^0-9.+\-*/()%]/g, '');
+                if (sanitized) insertAtCursor(sanitized);
+            }
         } catch (e) {
             // Fallback for some browsers if needed, but readText is standard now
             console.error(e);
@@ -310,7 +307,15 @@ const App = () => {
                             {isKeypadExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
                         </button>
                         <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.subText}`}>TOTAL =</span>
-                        <span className={`text-2xl font-bold ${themeColors.text}`}>{formatNumber(grandTotal, decimalConfig, numberFormat)}</span>
+                        <button 
+                            onClick={() => {
+                                triggerHaptic();
+                                copyToClipboard(grandTotal.toString());
+                            }}
+                            className={`text-2xl font-bold ${themeColors.text} active:scale-95 transition-transform`}
+                        >
+                            {formatNumber(grandTotal, decimalConfig, numberFormat)}
+                        </button>
                     </div>
                 </div>
             </div>

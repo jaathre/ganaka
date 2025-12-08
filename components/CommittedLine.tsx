@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeColors, BillItem, DecimalConfig, NumberFormat } from '../types';
-import { formatNumber, triggerHaptic } from '../utils';
+import { formatNumber, triggerHaptic, copyToClipboard } from '../utils';
 
 interface CommittedLineProps {
     item: BillItem;
@@ -15,6 +15,12 @@ export const CommittedLine: React.FC<CommittedLineProps> = ({ item, onClick, the
     const handleClick = () => {
         triggerHaptic();
         onClick(item);
+    };
+
+    const handleCopyResult = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        triggerHaptic();
+        copyToClipboard(item.result.toString());
     };
 
     if (item.details) {
@@ -52,7 +58,12 @@ export const CommittedLine: React.FC<CommittedLineProps> = ({ item, onClick, the
                     )}
                     <div className={`flex justify-between col-span-2 font-extrabold text-sm pt-1 mt-1 border-t border-dashed ${themeColors.itemBorder} opacity-100`}>
                         <span>Item Total:</span>
-                        <span className={themeColors.text}>{formatNumber(item.result, decimalConfig, numberFormat)}</span>
+                        <span 
+                            onClick={handleCopyResult}
+                            className={`${themeColors.text} active:scale-95 transition-transform`}
+                        >
+                            {formatNumber(item.result, decimalConfig, numberFormat)}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -64,7 +75,12 @@ export const CommittedLine: React.FC<CommittedLineProps> = ({ item, onClick, the
             className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-1.5 px-2 cursor-pointer hover:opacity-70 transition-opacity`}
         >
             <span className={`${themeColors.subText} text-xl font-mono`}>{item.expression}</span>
-            <span className={`${themeColors.text} text-2xl font-bold`}>{formatNumber(item.result, decimalConfig, numberFormat)}</span>
+            <span 
+                onClick={handleCopyResult}
+                className={`${themeColors.text} text-2xl font-bold active:scale-95 transition-transform`}
+            >
+                {formatNumber(item.result, decimalConfig, numberFormat)}
+            </span>
         </div>
     );
 };
