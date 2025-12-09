@@ -26,8 +26,8 @@ export const formatNumber = (num: number | string, decimals: 'auto' | number = '
 
 const calculateBODMAS = (expr: string): number => {
     // Custom Shunting Yard Algorithm Implementation
-    // Precedence: u (unary) > *, / > +, -
-    const ops: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, 'u': 3 };
+    // Precedence: √ > u (unary) > *, / > +, -
+    const ops: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, 'u': 3, '√': 4 };
     const tokens: (number | string)[] = [];
     let num = '';
     
@@ -41,7 +41,7 @@ const calculateBODMAS = (expr: string): number => {
         
         if (/[0-9.]/.test(c)) {
             num += c;
-        } else if ('+-*/()'.includes(c)) {
+        } else if ('+-*/()√'.includes(c)) {
             if (num) { tokens.push(parseFloat(num)); num = ''; }
             
             // Handle Unary Minus: '-' is unary if it's start of expr, or follows an operator or '('
@@ -49,7 +49,9 @@ const calculateBODMAS = (expr: string): number => {
             const lastToken = tokens[tokens.length - 1];
             const isUnary = c === '-' && (tokens.length === 0 || (typeof lastToken === 'string' && lastToken !== ')'));
             
-            if (isUnary) {
+            if (c === '√') {
+                 tokens.push('√');
+            } else if (isUnary) {
                  tokens.push('u');
             } else {
                  tokens.push(c);
@@ -79,7 +81,7 @@ const calculateBODMAS = (expr: string): number => {
                 stack.length && 
                 stack[stack.length - 1] !== '(' &&
                 ops[currentOp] <= ops[stack[stack.length - 1]] &&
-                currentOp !== 'u' // Unary usually right-associative, simplified here
+                currentOp !== 'u' && currentOp !== '√' // Unary/Right-associative usually
             ) {
                 const op = stack.pop();
                 if (op) output.push(op);
@@ -101,6 +103,10 @@ const calculateBODMAS = (expr: string): number => {
             const a = res.pop();
             if (a === undefined) throw new Error("Invalid Expression");
             res.push(-a);
+        } else if (token === '√') {
+            const a = res.pop();
+            if (a === undefined) throw new Error("Invalid Expression");
+            res.push(Math.sqrt(a));
         } else {
             const b = res.pop();
             const a = res.pop();

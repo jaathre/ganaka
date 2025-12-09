@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
-    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, Percent, 
-    ChevronDown, ChevronUp, Copy, ClipboardPaste, Parentheses
+    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
+    ChevronDown, ChevronUp, Clipboard, Radical, Parentheses
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -178,18 +178,13 @@ const App = () => {
         cursorPositionRef.current = 0;
     };
 
-    const handleCopy = () => {
-        // Always copy the grand total (page total) to clipboard
-        copyToClipboard(grandTotal.toString());
-    };
-
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
                 // Strip commas, currency symbols, and other non-math characters
-                // Preserves digits, decimals, operators, parentheses, and %
-                const sanitized = text.replace(/[^0-9.+\-*/()%]/g, '');
+                // Preserves digits, decimals, operators, parentheses, %, and √
+                const sanitized = text.replace(/[^0-9.+\-*/()%√]/g, '');
                 if (sanitized) insertAtCursor(sanitized);
             }
         } catch (e) {
@@ -225,7 +220,10 @@ const App = () => {
                 const openCount = (currentInput.match(/\(/g) || []).length;
                 const closeCount = (currentInput.match(/\)/g) || []).length;
                 const lastChar = currentInput.slice(-1);
-                insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
+                insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷', '√'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
+                break;
+            case 'SQRT':
+                insertAtCursor('√');
                 break;
             default: insertAtCursor(value);
         }
@@ -351,8 +349,8 @@ const App = () => {
                         ) : (
                             <>
                                 <Button icon={Parentheses} onClick={() => handleInput('()')} className="bg-violet-200 text-black active:bg-violet-300 font-bold" />
-                                <Button icon={Copy} onClick={handleCopy} className="bg-yellow-200 text-black active:bg-yellow-300 font-bold" />
-                                <Button icon={ClipboardPaste} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
+                                <Button icon={Radical} onClick={() => handleInput('SQRT')} className="bg-yellow-200 text-black active:bg-yellow-300 font-bold" />
+                                <Button icon={Clipboard} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
                             </>
                         )}
                         
