@@ -21,9 +21,9 @@ export const Button: React.FC<ButtonProps> = ({ label, onClick, className = '', 
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onMouseLeave={onPointerUp}
-        className={`relative flex flex-col items-center justify-center h-16 rounded-lg text-xl font-medium transition-all active:scale-95 shadow-sm select-none ${className}`}
+        className={`relative flex flex-col items-center justify-center h-16 rounded-lg text-xl font-medium transition-all active:scale-95 shadow-sm select-none ${label ? 'gap-0.5' : ''} ${className}`}
     >
-        {Icon && <Icon size={24} strokeWidth={2.5} />}
-        {label && <div className="flex items-center justify-center w-full">{label}</div>}
+        {Icon && <Icon size={label ? 20 : 24} strokeWidth={2.5} />}
+        {label && <div className="flex items-center justify-center w-full leading-none">{label}</div>}
     </button>
 );

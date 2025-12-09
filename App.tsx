@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
-    ChevronDown, ChevronUp, Clipboard, Radical, Parentheses
+    ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -42,6 +42,16 @@ const LabelText: React.FC<{ top: string; bottom: string }> = ({ top, bottom }) =
         <span className="text-[10px] font-bold tracking-wider uppercase mt-1 opacity-60">{bottom}</span>
     </div>;
 
+const BtnLabel: React.FC<{ text: string }> = ({ text }) => 
+    <span className="text-[10px] font-bold uppercase tracking-wider">{text}</span>;
+
+interface HistoryState {
+    pages: BillItem[][];
+    pageIdx: number;
+    currentInput: string;
+    activeItemId: number | null;
+}
+
 const App = () => {
     // --- State ---
     const [pages, setPages] = useState<BillItem[][]>(Array.from({ length: 4 }, () => [])); 
@@ -49,6 +59,9 @@ const App = () => {
     const [currentInput, setCurrentInput] = useState('');
     const [activeItemId, setActiveItemId] = useState<number | null>(null); 
     const [, setUserId] = useState<string | null>(null);
+
+    // History State
+    const [history, setHistory] = useState<HistoryState[]>([]);
 
     // Modes & Settings
     const [isGstMode, setIsGstMode] = useState(false);
@@ -107,13 +120,50 @@ const App = () => {
         }
     });
 
+    // --- History Management ---
+    
+    // Save current state to history BEFORE a destructive action
+    const saveSnapshot = () => {
+        const currentState: HistoryState = {
+            pages: pages, // Note: This references the current pages state
+            pageIdx: currentPage,
+            currentInput: currentInput,
+            activeItemId: activeItemId
+        };
+        
+        setHistory(prev => {
+            const newHistory = [...prev, currentState];
+            // Limit history size to 50
+            if (newHistory.length > 50) return newHistory.slice(1);
+            return newHistory;
+        });
+    };
+
+    const handleUndo = () => {
+        if (history.length > 0) {
+            triggerHaptic();
+            // Pop the last state
+            const prevState = history[history.length - 1];
+            const newHistory = history.slice(0, -1);
+            
+            // Restore state
+            setPages(prevState.pages);
+            setCurrentPage(prevState.pageIdx);
+            setCurrentInput(prevState.currentInput);
+            setActiveItemId(prevState.activeItemId);
+            
+            // Set cursor to end of restored input
+            cursorPositionRef.current = prevState.currentInput.length;
+            
+            setHistory(newHistory);
+        }
+    };
+
     // --- Handlers ---
     const updateCurrentPageItems = (newItems: BillItem[]) => {
-        setPages(prev => {
-            const newPages = [...prev];
-            newPages[currentPage] = newItems;
-            return newPages;
-        });
+        const newPages = [...pages];
+        newPages[currentPage] = newItems;
+        setPages(newPages);
     };
 
     const updateInput = (newString: string, newCursorPos: number | null = null) => {
@@ -155,6 +205,8 @@ const App = () => {
     };
 
     const handleTaxCalculation = (isAdd: boolean, rateOverride?: number) => {
+        saveSnapshot(); // Save before adding tax line
+
         const rateToUse = rateOverride !== undefined ? rateOverride : taxRate;
         const baseVal = evaluateExpression(currentInput);
         if (baseVal === 0 && currentInput === '') return;
@@ -182,13 +234,13 @@ const App = () => {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
+                saveSnapshot(); // Save before pasting
                 // Strip commas, currency symbols, and other non-math characters
-                // Preserves digits, decimals, operators, parentheses, %, and √
-                const sanitized = text.replace(/[^0-9.+\-*/()%√]/g, '');
+                // Preserves digits, decimals, operators, parentheses, %
+                const sanitized = text.replace(/[^0-9.+\-*/()%]/g, '');
                 if (sanitized) insertAtCursor(sanitized);
             }
         } catch (e) {
-            // Fallback for some browsers if needed, but readText is standard now
             console.error(e);
         }
     };
@@ -197,8 +249,14 @@ const App = () => {
         if (inputRef.current) inputRef.current.focus();
 
         switch(value) {
-            case 'CLEAR_ALL': updateCurrentPageItems([]); setCurrentInput(''); setActiveItemId(null); break;
+            case 'CLEAR_ALL': 
+                saveSnapshot();
+                updateCurrentPageItems([]); 
+                setCurrentInput(''); 
+                setActiveItemId(null); 
+                break;
             case 'CLEAR_LINE': 
+                saveSnapshot();
                 if (currentInput) {
                     updateInput('', 0); 
                 } else if (billItems.length > 0) {
@@ -206,11 +264,20 @@ const App = () => {
                     updateCurrentPageItems(billItems.slice(0, -1));
                 }
                 break;
-            case 'DELETE': deleteAtCursor(); break;
+            case 'DELETE': 
+                // Only snapshot if there is something to delete
+                if (currentInput.length > 0) {
+                    saveSnapshot();
+                }
+                deleteAtCursor(); 
+                break;
             case 'NEXT_LINE':
                 if (activeItemId !== null) {
+                    // Finishing an edit
+                    saveSnapshot(); // Save edited state before deselecting
                     setActiveItemId(null); setCurrentInput(''); cursorPositionRef.current = 0;
                 } else if (currentInput) {
+                    saveSnapshot(); // Save state (input content) before moving to list
                     const result = evaluateExpression(currentInput);
                     updateCurrentPageItems([...billItems, { id: Date.now(), expression: currentInput, result }]);
                     setCurrentInput(''); cursorPositionRef.current = 0;
@@ -220,10 +287,7 @@ const App = () => {
                 const openCount = (currentInput.match(/\(/g) || []).length;
                 const closeCount = (currentInput.match(/\)/g) || []).length;
                 const lastChar = currentInput.slice(-1);
-                insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷', '√'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
-                break;
-            case 'SQRT':
-                insertAtCursor('√');
+                insertAtCursor((openCount > closeCount && !['(', '+', '-', 'x', '÷'].includes(lastChar)) ? ')' : (/\d|\)/.test(lastChar) ? 'x(' : '('));
                 break;
             default: insertAtCursor(value);
         }
@@ -308,7 +372,7 @@ const App = () => {
                         <button 
                             onClick={() => {
                                 triggerHaptic();
-                                copyToClipboard(grandTotal.toString());
+                                copyToClipboard(formatNumber(grandTotal, decimalConfig, numberFormat));
                             }}
                             className={`text-2xl font-bold ${themeColors.text} active:scale-95 transition-transform`}
                         >
@@ -323,10 +387,10 @@ const App = () => {
                 <div className={`${themeColors.keypadBg} flex flex-col border-t ${themeColors.border} transition-colors duration-300`}>
                     <div className="p-3 pt-3 grid grid-cols-4 gap-2 pb-6 animate-in slide-in-from-bottom-2 duration-200">
                         {/* Row 1 */}
-                        <Button icon={RefreshCw} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
-                        <Button icon={ChevronsLeft} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
-                        <Button icon={ChevronLeft} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
-                        <Button icon={CornerDownLeft} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
+                        <Button icon={RefreshCw} label={<BtnLabel text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                        <Button icon={ChevronsLeft} label={<BtnLabel text="CLEAR" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
+                        <Button icon={ChevronLeft} label={<BtnLabel text="DELETE" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
+                        <Button icon={CornerDownLeft} label={<BtnLabel text="ENTER" />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
                         {/* Row 2: Mode Specific */}
                         {isGstMode ? (
@@ -349,8 +413,15 @@ const App = () => {
                         ) : (
                             <>
                                 <Button icon={Parentheses} onClick={() => handleInput('()')} className="bg-violet-200 text-black active:bg-violet-300 font-bold" />
-                                <Button icon={Radical} onClick={() => handleInput('SQRT')} className="bg-yellow-200 text-black active:bg-yellow-300 font-bold" />
-                                <Button icon={Clipboard} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
+                                
+                                <Button 
+                                    icon={Undo2}
+                                    label={<BtnLabel text="UNDO" />} 
+                                    onClick={handleUndo} 
+                                    className={`bg-slate-200 text-black active:bg-slate-300 font-bold ${history.length === 0 ? 'opacity-40' : ''}`} 
+                                />
+
+                                <Button icon={Clipboard} label={<BtnLabel text="PASTE" />} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
                             </>
                         )}
                         
@@ -379,7 +450,7 @@ const App = () => {
                         
                         {/* Row 6 */}
                         <Button 
-                            label={<LabelText top={isGstMode ? "GST" : "BASIC"} bottom="MODE" />} 
+                            label={<LabelText top={isGstMode ? "GST" : "MASTER"} bottom="MODE" />} 
                             onClick={() => { triggerHaptic(); setIsGstMode(!isGstMode); }} 
                             className={`${isGstMode ? 'bg-green-100 text-green-900 ring-1 ring-green-200' : 'bg-gray-100 text-gray-900 ring-1 ring-gray-200'} active:scale-95 transition-all`} 
                         />

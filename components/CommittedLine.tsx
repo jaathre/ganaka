@@ -20,7 +20,7 @@ export const CommittedLine: React.FC<CommittedLineProps> = ({ item, onClick, the
     const handleCopyResult = (e: React.MouseEvent) => {
         e.stopPropagation();
         triggerHaptic();
-        copyToClipboard(item.result.toString());
+        copyToClipboard(formatNumber(item.result, decimalConfig, numberFormat));
     };
 
     if (item.details) {

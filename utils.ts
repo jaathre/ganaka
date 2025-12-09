@@ -26,8 +26,8 @@ export const formatNumber = (num: number | string, decimals: 'auto' | number = '
 
 const calculateBODMAS = (expr: string): number => {
     // Custom Shunting Yard Algorithm Implementation
-    // Precedence: √ > u (unary) > *, / > +, -
-    const ops: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, 'u': 3, '√': 4 };
+    // Precedence: u (unary) > *, / > +, -
+    const ops: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, 'u': 3 };
     const tokens: (number | string)[] = [];
     let num = '';
     
@@ -41,7 +41,7 @@ const calculateBODMAS = (expr: string): number => {
         
         if (/[0-9.]/.test(c)) {
             num += c;
-        } else if ('+-*/()√'.includes(c)) {
+        } else if ('+-*/()'.includes(c)) {
             if (num) { tokens.push(parseFloat(num)); num = ''; }
             
             // Handle Unary Minus: '-' is unary if it's start of expr, or follows an operator or '('
@@ -49,9 +49,7 @@ const calculateBODMAS = (expr: string): number => {
             const lastToken = tokens[tokens.length - 1];
             const isUnary = c === '-' && (tokens.length === 0 || (typeof lastToken === 'string' && lastToken !== ')'));
             
-            if (c === '√') {
-                 tokens.push('√');
-            } else if (isUnary) {
+            if (isUnary) {
                  tokens.push('u');
             } else {
                  tokens.push(c);
@@ -81,7 +79,7 @@ const calculateBODMAS = (expr: string): number => {
                 stack.length && 
                 stack[stack.length - 1] !== '(' &&
                 ops[currentOp] <= ops[stack[stack.length - 1]] &&
-                currentOp !== 'u' && currentOp !== '√' // Unary/Right-associative usually
+                currentOp !== 'u' // Unary usually right associative or highest
             ) {
                 const op = stack.pop();
                 if (op) output.push(op);
@@ -103,10 +101,6 @@ const calculateBODMAS = (expr: string): number => {
             const a = res.pop();
             if (a === undefined) throw new Error("Invalid Expression");
             res.push(-a);
-        } else if (token === '√') {
-            const a = res.pop();
-            if (a === undefined) throw new Error("Invalid Expression");
-            res.push(Math.sqrt(a));
         } else {
             const b = res.pop();
             const a = res.pop();
@@ -135,6 +129,21 @@ export const evaluateExpression = (expr: string): number => {
         
         // Handle remaining percentage operations (e.g. 50*10% or just 20%)
         cleanExpr = cleanExpr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+        
+        // Remove trailing operators and open parens to allow partial evaluation while typing
+        // This ensures "10 +" evaluates to 10, preventing the result from disappearing
+        while (cleanExpr.length > 0 && /[^0-9)%]/.test(cleanExpr.slice(-1))) {
+            cleanExpr = cleanExpr.slice(0, -1);
+        }
+
+        if (!cleanExpr) return 0;
+
+        // Auto-balance parentheses
+        const openCount = (cleanExpr.match(/\(/g) || []).length;
+        const closeCount = (cleanExpr.match(/\)/g) || []).length;
+        if (openCount > closeCount) {
+            cleanExpr += ')'.repeat(openCount - closeCount);
+        }
         
         // Use custom BODMAS parser instead of new Function
         const result = calculateBODMAS(cleanExpr);
