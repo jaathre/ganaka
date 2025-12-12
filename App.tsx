@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
     ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses,
-    History, Settings, Moon, Sun, Globe, Hash, Tag, Percent
+    History, Settings, Moon, Sun, Globe, Hash, Tag, Percent, RotateCcw
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -82,6 +82,10 @@ const App = () => {
 
     // UI State
     const [isKeypadExpanded, setIsKeypadExpanded] = useState(true);
+    
+    // Modal State
+    const [showTaxModal, setShowTaxModal] = useState(false);
+    const [tempRates, setTempRates] = useState<string[]>(['', '', '']);
 
     // Refs
     const inputRef = useRef<HTMLInputElement>(null);
@@ -89,10 +93,6 @@ const App = () => {
     const listEndRef = useRef<HTMLDivElement>(null);
     const logEndRef = useRef<HTMLDivElement>(null);
     
-    // Touch Handling State
-    const [touchStart, setTouchStart] = useState<number | null>(null);
-    const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
     // Derived Values
     const isCalculatorPage = currentPage < 2;
     const billItems = pages[currentPage] || [];
@@ -141,7 +141,7 @@ const App = () => {
         setCalculationLog(prev => [...prev, { ...item, id: Date.now() + Math.random() }]);
     };
 
-    // --- History Management (Undo/Redo) ---
+    // --- History Management (Restore) ---
     // Snapshots capture the entire state of the calculator (pages, input, active item)
     // allowing recovery of digits, cleared lines, or cleared pages.
     const saveSnapshot = () => {
@@ -160,7 +160,7 @@ const App = () => {
         });
     };
 
-    const handleUndo = () => {
+    const handleRestore = () => {
         if (history.length > 0) {
             triggerHaptic();
             const prevState = history[history.length - 1];
@@ -208,6 +208,8 @@ const App = () => {
     };
 
     const insertAtCursor = (text: string) => {
+        // Clear history on constructive input to prevent restoring old state and overwriting new input
+        setHistory([]); 
         if (!inputRef.current) { updateInput(currentInput + text); return; }
         const start = inputRef.current.selectionStart || 0;
         const end = inputRef.current.selectionEnd || 0;
@@ -270,7 +272,8 @@ const App = () => {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
-                saveSnapshot(); 
+                // Don't save snapshot on paste, as it's constructive.
+                // insertAtCursor will handle clearing history.
                 const sanitized = text.replace(/[^0-9.+\-*/()%]/g, '');
                 if (sanitized) insertAtCursor(sanitized);
             }
@@ -322,25 +325,17 @@ const App = () => {
         }
     };
 
-    const handleEditRate = (index: number) => {
-        const current = availableRates[index];
-        // Using window.prompt is simple and robust for this environment.
-        const input = window.prompt(`Enter tax rate for Slot ${index + 1} (%):`, current.toString());
-        if (input !== null) {
-            const val = parseFloat(input);
-            if (!isNaN(val) && val >= 0 && val <= 100) {
-                setAvailableRates(prev => {
-                    const newRates = [...prev];
-                    newRates[index] = val;
-                    return newRates;
-                });
-            }
-        }
+    // Modal Helpers
+    const openTaxModal = () => {
+        setTempRates(availableRates.map(r => r.toString()));
+        setShowTaxModal(true);
     };
 
-    const onTouchEnd = () => {
-        setTouchStart(null);
-        setTouchEnd(null);
+    const saveRates = () => {
+        const newRates = tempRates.map(r => parseFloat(r) || 0);
+        // Ensure strictly 3 rates logic if needed, but array map preserves length
+        setAvailableRates(newRates);
+        setShowTaxModal(false);
     };
 
     const TabButton: React.FC<{ idx: number, label?: string, icon?: React.ElementType }> = ({ idx, label, icon: Icon }) => {
@@ -364,19 +359,20 @@ const App = () => {
         );
     };
 
+    // Use <button> instead of <div> for better accessibility and touch handling
     const SettingRow: React.FC<{ label: string, value: string, icon: React.ElementType, onClick: () => void }> = ({ label, value, icon: Icon, onClick }) => {
         const valBg = themeMode === 'light' ? 'bg-slate-100 text-slate-700' : 'bg-zinc-800 text-zinc-300';
         return (
-            <div 
+            <button 
                 onClick={() => { triggerHaptic(); onClick(); }}
-                className={`flex justify-between items-center border-b ${themeColors.itemBorder} py-3 px-4 cursor-pointer active:opacity-70 transition-opacity`}
+                className={`w-full flex justify-between items-center border-b ${themeColors.itemBorder} py-3 px-4 active:opacity-50 transition-opacity text-left outline-none`}
             >
                 <div className="flex items-center gap-3">
                     <Icon size={20} className={themeColors.subText} />
                     <span className={`${themeColors.text} font-medium`}>{label}</span>
                 </div>
                 <span className={`${valBg} font-bold opacity-100 px-2 py-1 rounded text-xs`}>{value}</span>
-            </div>
+            </button>
         );
     };
 
@@ -395,10 +391,7 @@ const App = () => {
                     </div>
 
                     {/* Content Area */}
-                    <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar relative`} 
-                            onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
-                            onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
-                            onTouchEnd={onTouchEnd}>
+                    <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar relative`}>
                         
                         {/* Calculator Pages */}
                         {isCalculatorPage && (
@@ -467,20 +460,12 @@ const App = () => {
                                     icon={Tag}
                                     onClick={() => setShowLabels(!showLabels)} 
                                 />
-
-                                <div className={`px-4 mt-6 mb-2 text-[10px] font-bold ${themeColors.subText} uppercase tracking-wider opacity-60`}>
-                                    Default Tax Rates
-                                </div>
-                                
-                                {availableRates.map((rate, index) => (
-                                    <SettingRow 
-                                        key={`rate-${index}`}
-                                        label={`Tax Rate ${index + 1}`} 
-                                        value={`${rate}%`} 
-                                        icon={Percent}
-                                        onClick={() => handleEditRate(index)} 
-                                    />
-                                ))}
+                                <SettingRow 
+                                    label="Default Tax Rates"
+                                    value={`${availableRates.join('%, ')}%`}
+                                    icon={Percent}
+                                    onClick={openTaxModal}
+                                />
 
                                 <div className={`px-4 mt-8 text-[10px] ${themeColors.subText} text-center opacity-40`}>
                                     GANAKA v1.1.0
@@ -518,6 +503,49 @@ const App = () => {
                     )}
                 </div>
             </div>
+            
+            {/* Tax Rate Modal */}
+            {showTaxModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className={`${themeMode === 'light' ? 'bg-white' : 'bg-zinc-900 border border-zinc-800'} w-full max-w-xs rounded-2xl p-5 shadow-2xl`}>
+                        <h3 className={`text-lg font-bold mb-4 ${themeColors.text}`}>Edit Tax Rates</h3>
+                        <div className="flex gap-2 mb-6">
+                            {tempRates.map((rate, i) => (
+                                <div key={i} className="flex-1">
+                                    <label className={`text-[10px] font-bold uppercase ${themeColors.subText} mb-1.5 block text-center`}>Slot {i+1} (%)</label>
+                                    <input 
+                                        type="number" 
+                                        inputMode="numeric"
+                                        value={rate} 
+                                        onChange={e => {
+                                            const n = [...tempRates];
+                                            n[i] = e.target.value;
+                                            setTempRates(n);
+                                        }}
+                                        className={`w-full p-2.5 rounded-xl text-center font-bold text-xl outline-none transition-all
+                                            ${themeMode === 'light' ? 'bg-slate-100 text-slate-900 focus:ring-2 ring-slate-200' : 'bg-zinc-950 text-zinc-100 focus:ring-2 ring-zinc-700'}
+                                        `}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setShowTaxModal(false)} 
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${themeMode === 'light' ? 'bg-slate-100 text-slate-600 active:bg-slate-200' : 'bg-zinc-800 text-zinc-400 active:bg-zinc-700'}`}
+                            >
+                                CANCEL
+                            </button>
+                            <button 
+                                onClick={saveRates} 
+                                className="flex-1 py-3 rounded-xl font-bold text-sm bg-blue-600 text-white shadow-lg shadow-blue-500/30 active:scale-95 transition-all"
+                            >
+                                SAVE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* --- Keypad --- */}
             {isKeypadExpanded && isCalculatorPage && (
@@ -552,9 +580,9 @@ const App = () => {
                                 <Button icon={Parentheses} onClick={() => handleInput('()')} className="bg-violet-200 text-black active:bg-violet-300 font-bold" />
                                 
                                 <Button 
-                                    icon={Undo2}
-                                    label={showLabels ? <BtnLabel text="UNDO" /> : undefined}
-                                    onClick={handleUndo} 
+                                    icon={RotateCcw}
+                                    label={showLabels ? <BtnLabel text="RESTORE" /> : undefined}
+                                    onClick={handleRestore} 
                                     className={`bg-slate-200 text-black active:bg-slate-300 font-bold ${history.length === 0 ? 'opacity-40' : ''}`} 
                                 />
 
