@@ -75,7 +75,7 @@ const App = () => {
     const [isGstMode, setIsGstMode] = useState(false);
     const [themeMode, setThemeMode] = useState<ThemeName>('light');
     const [taxRate, ] = useState(18); 
-    const [availableRates, setAvailableRates] = useState([5, 12, 18]); 
+    const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
     const [decimalConfig, ] = useState<DecimalConfig>(2); 
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN'); 
     const [showLabels, setShowLabels] = useState(true);
