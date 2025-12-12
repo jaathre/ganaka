@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
     ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses,
-    History, Settings, Moon, Sun, Globe, Hash, Tag
+    History, Settings, Moon, Sun, Globe, Hash, Tag, Percent
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -75,7 +75,7 @@ const App = () => {
     const [isGstMode, setIsGstMode] = useState(false);
     const [themeMode, setThemeMode] = useState<ThemeName>('light');
     const [taxRate, ] = useState(18); 
-    const [availableRates, ] = useState([5, 18, 40]); 
+    const [availableRates, setAvailableRates] = useState([5, 12, 18]); 
     const [decimalConfig, ] = useState<DecimalConfig>(2); 
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN'); 
     const [showLabels, setShowLabels] = useState(true);
@@ -322,6 +322,22 @@ const App = () => {
         }
     };
 
+    const handleEditRate = (index: number) => {
+        const current = availableRates[index];
+        // Using window.prompt is simple and robust for this environment.
+        const input = window.prompt(`Enter tax rate for Slot ${index + 1} (%):`, current.toString());
+        if (input !== null) {
+            const val = parseFloat(input);
+            if (!isNaN(val) && val >= 0 && val <= 100) {
+                setAvailableRates(prev => {
+                    const newRates = [...prev];
+                    newRates[index] = val;
+                    return newRates;
+                });
+            }
+        }
+    };
+
     const onTouchEnd = () => {
         setTouchStart(null);
         setTouchEnd(null);
@@ -451,6 +467,21 @@ const App = () => {
                                     icon={Tag}
                                     onClick={() => setShowLabels(!showLabels)} 
                                 />
+
+                                <div className={`px-4 mt-6 mb-2 text-[10px] font-bold ${themeColors.subText} uppercase tracking-wider opacity-60`}>
+                                    Default Tax Rates
+                                </div>
+                                
+                                {availableRates.map((rate, index) => (
+                                    <SettingRow 
+                                        key={`rate-${index}`}
+                                        label={`Tax Rate ${index + 1}`} 
+                                        value={`${rate}%`} 
+                                        icon={Percent}
+                                        onClick={() => handleEditRate(index)} 
+                                    />
+                                ))}
+
                                 <div className={`px-4 mt-8 text-[10px] ${themeColors.subText} text-center opacity-40`}>
                                     GANAKA v1.1.0
                                 </div>
@@ -510,7 +541,7 @@ const App = () => {
                                     </button>
                                     <button 
                                         onClick={() => { triggerHaptic(); handleTaxCalculation(false, rate); }}
-                                        className="flex-1 bg-rose-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-rose-300 flex items-center justify-center"
+                                        className="flex-1 bg-rose-200 rounded-lg text-black font-bold text-sm shadow-sm active:scale-95 active:bg-rose-200 active:text-rose-900 bg-rose-100 flex items-center justify-center"
                                     >
                                         -{rate}%
                                     </button>
