@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
-    ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses
+    ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses,
+    History, Settings, Moon, Sun, Globe, Hash, Tag
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -10,37 +11,41 @@ import { Button } from './components/Button';
 import { ActiveLine } from './components/ActiveLine';
 import { CommittedLine } from './components/CommittedLine';
 import { formatNumber, evaluateExpression, triggerHaptic, copyToClipboard } from './utils';
-import { BillItem, ThemeColors, DecimalConfig, NumberFormat } from './types';
+import { BillItem, ThemeColors, DecimalConfig, NumberFormat, ThemeName } from './types';
 
 // --- Configuration & Globals ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-// Pastel Theme Colors (Trendy Palette)
+// Page Styles - Adjusted for better visibility in new Dark Mode
 const PAGE_STYLES = [
-    { bg: 'bg-rose-100', text: 'text-black', highlight: 'text-rose-900' },
-    { bg: 'bg-sky-100', text: 'text-black', highlight: 'text-sky-900' },
-    { bg: 'bg-emerald-100', text: 'text-black', highlight: 'text-emerald-900' },
-    { bg: 'bg-amber-100', text: 'text-black', highlight: 'text-amber-900' },
+    { bg: 'bg-rose-100', text: 'text-rose-950', highlight: 'text-rose-900', darkBg: 'bg-rose-950/50', darkText: 'text-rose-200' }, // Master
+    { bg: 'bg-sky-100', text: 'text-sky-950', highlight: 'text-sky-900', darkBg: 'bg-sky-950/50', darkText: 'text-sky-200' },   // GST
+    { bg: 'bg-emerald-100', text: 'text-emerald-950', highlight: 'text-emerald-900', darkBg: 'bg-emerald-950/50', darkText: 'text-emerald-200' }, // History
+    { bg: 'bg-amber-100', text: 'text-amber-950', highlight: 'text-amber-900', darkBg: 'bg-amber-950/50', darkText: 'text-amber-200' }, // Settings
 ];
 
-const THEME_COLORS: Record<string, ThemeColors> = {
+const THEME_COLORS: Record<ThemeName, ThemeColors> = {
     light: { 
         bg: 'bg-slate-50', appBg: 'bg-white', text: 'text-slate-800', subText: 'text-slate-400', 
         border: 'border-slate-100', headerBg: 'bg-white', tabBg: 'bg-slate-50', 
-        tabActive: 'bg-white text-black shadow-sm', tabInactive: 'text-slate-400 hover:bg-slate-100', 
+        tabActive: 'bg-white text-slate-900 shadow-sm border-slate-200', tabInactive: 'text-slate-400 hover:bg-slate-100', 
         keypadBg: 'bg-slate-50', totalBarBg: 'bg-white', menuBg: 'bg-white', 
         itemBorder: 'border-slate-100', menuItemHover: 'hover:bg-slate-50', 
-        menuItemActive: 'bg-slate-100 text-black', activeLineBg: 'bg-white ring-1 ring-slate-100',
+        menuItemActive: 'bg-slate-100 text-slate-900', activeLineBg: 'bg-white ring-1 ring-slate-100',
         displayBorder: 'border-slate-100'
+    },
+    // New "True Dark" Theme
+    dark: {
+        bg: 'bg-black', appBg: 'bg-black', text: 'text-zinc-200', subText: 'text-zinc-600', 
+        border: 'border-zinc-900', headerBg: 'bg-black', tabBg: 'bg-black', 
+        tabActive: 'bg-zinc-900 text-white border-zinc-800 shadow-[0_0_10px_rgba(255,255,255,0.05)]', tabInactive: 'text-zinc-600 hover:bg-zinc-900', 
+        keypadBg: 'bg-black', totalBarBg: 'bg-zinc-950', menuBg: 'bg-black', 
+        itemBorder: 'border-zinc-900', menuItemHover: 'hover:bg-zinc-900', 
+        menuItemActive: 'bg-zinc-900 text-white', activeLineBg: 'bg-zinc-900/50 ring-1 ring-zinc-800',
+        displayBorder: 'border-zinc-800'
     }
 };
-
-const LabelText: React.FC<{ top: string; bottom: string }> = ({ top, bottom }) => 
-    <div className="flex flex-col items-center leading-none">
-        <span className="text-sm font-black tracking-wide uppercase">{top}</span>
-        <span className="text-[10px] font-bold tracking-wider uppercase mt-1 opacity-60">{bottom}</span>
-    </div>;
 
 const BtnLabel: React.FC<{ text: string }> = ({ text }) => 
     <span className="text-[10px] font-bold uppercase tracking-wider">{text}</span>;
@@ -59,16 +64,21 @@ const App = () => {
     const [currentInput, setCurrentInput] = useState('');
     const [activeItemId, setActiveItemId] = useState<number | null>(null); 
     const [, setUserId] = useState<string | null>(null);
+    
+    // Global Logs (History Page)
+    const [calculationLog, setCalculationLog] = useState<BillItem[]>([]);
 
-    // History State
+    // History State (Undo/Redo for Calculator Pages)
     const [history, setHistory] = useState<HistoryState[]>([]);
 
     // Modes & Settings
     const [isGstMode, setIsGstMode] = useState(false);
-    const [taxRate, ] = useState(18); // Default fixed, since settings removed
-    const [availableRates, ] = useState([5, 18, 40]); // Default fixed
-    const [decimalConfig, ] = useState<DecimalConfig>(2); // Default
-    const [numberFormat, ] = useState<NumberFormat>('IN'); // Default
+    const [themeMode, setThemeMode] = useState<ThemeName>('light');
+    const [taxRate, ] = useState(18); 
+    const [availableRates, ] = useState([5, 18, 40]); 
+    const [decimalConfig, ] = useState<DecimalConfig>(2); 
+    const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN'); 
+    const [showLabels, setShowLabels] = useState(true);
 
     // UI State
     const [isKeypadExpanded, setIsKeypadExpanded] = useState(true);
@@ -77,18 +87,20 @@ const App = () => {
     const inputRef = useRef<HTMLInputElement>(null);
     const cursorPositionRef = useRef<number | null>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
+    const logEndRef = useRef<HTMLDivElement>(null);
     
     // Touch Handling State
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
     // Derived Values
+    const isCalculatorPage = currentPage < 2;
     const billItems = pages[currentPage] || [];
     const livePreview = currentInput ? evaluateExpression(currentInput) : 0;
     const grandTotal = billItems.reduce((sum, item) => sum + item.result, 0) + (activeItemId === null ? livePreview : 0);
     const emptyLines = Math.max(0, 3 - billItems.length - (activeItemId === null ? 1 : 0)); 
     
-    const themeColors = THEME_COLORS.light;
+    const themeColors = THEME_COLORS[themeMode];
 
     // --- Effects ---
     useEffect(() => {
@@ -109,9 +121,13 @@ const App = () => {
     }, []);
 
     useEffect(() => {
-        if (activeItemId === null) listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        if (inputRef.current) inputRef.current.focus();
-    }, [billItems.length, currentPage, activeItemId]);
+        if (isCalculatorPage && activeItemId === null) listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (isCalculatorPage && inputRef.current) inputRef.current.focus();
+    }, [billItems.length, currentPage, activeItemId, isCalculatorPage]);
+    
+    useEffect(() => {
+        if (currentPage === 2) logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [currentPage, calculationLog.length]);
 
     useLayoutEffect(() => {
         if (cursorPositionRef.current !== null && inputRef.current) {
@@ -120,12 +136,17 @@ const App = () => {
         }
     });
 
-    // --- History Management ---
-    
-    // Save current state to history BEFORE a destructive action
+    // --- Helpers ---
+    const addToLog = (item: BillItem) => {
+        setCalculationLog(prev => [...prev, { ...item, id: Date.now() + Math.random() }]);
+    };
+
+    // --- History Management (Undo/Redo) ---
+    // Snapshots capture the entire state of the calculator (pages, input, active item)
+    // allowing recovery of digits, cleared lines, or cleared pages.
     const saveSnapshot = () => {
         const currentState: HistoryState = {
-            pages: pages, // Note: This references the current pages state
+            pages: pages,
             pageIdx: currentPage,
             currentInput: currentInput,
             activeItemId: activeItemId
@@ -133,7 +154,7 @@ const App = () => {
         
         setHistory(prev => {
             const newHistory = [...prev, currentState];
-            // Limit history size to 50
+            // Limit history stack size
             if (newHistory.length > 50) return newHistory.slice(1);
             return newHistory;
         });
@@ -142,24 +163,32 @@ const App = () => {
     const handleUndo = () => {
         if (history.length > 0) {
             triggerHaptic();
-            // Pop the last state
             const prevState = history[history.length - 1];
             const newHistory = history.slice(0, -1);
-            
-            // Restore state
             setPages(prevState.pages);
-            setCurrentPage(prevState.pageIdx);
+            // Only switch page if necessary to avoid jarring jumps
+            if (prevState.pageIdx !== currentPage) {
+                 handlePageSwitch(prevState.pageIdx, false);
+            }
             setCurrentInput(prevState.currentInput);
             setActiveItemId(prevState.activeItemId);
-            
-            // Set cursor to end of restored input
             cursorPositionRef.current = prevState.currentInput.length;
-            
             setHistory(newHistory);
         }
     };
 
     // --- Handlers ---
+    const handlePageSwitch = (idx: number, clearInput = true) => {
+        setCurrentPage(idx);
+        if (idx === 0) setIsGstMode(false); 
+        if (idx === 1) setIsGstMode(true);  
+        
+        if (clearInput) {
+            setActiveItemId(null);
+            setCurrentInput('');
+        }
+    };
+
     const updateCurrentPageItems = (newItems: BillItem[]) => {
         const newPages = [...pages];
         newPages[currentPage] = newItems;
@@ -198,14 +227,19 @@ const App = () => {
     };
 
     const handleLineClick = (item: BillItem) => {
-        setActiveItemId(item.id);
-        setCurrentInput(item.expression); 
-        cursorPositionRef.current = item.expression.length;
-        setIsKeypadExpanded(true); // Auto-expand when selecting a line to edit
+        if (isCalculatorPage) {
+            setActiveItemId(item.id);
+            setCurrentInput(item.expression); 
+            cursorPositionRef.current = item.expression.length;
+            setIsKeypadExpanded(true); 
+        } else if (currentPage === 2) {
+             triggerHaptic();
+             copyToClipboard(formatNumber(item.result, decimalConfig, numberFormat));
+        }
     };
 
     const handleTaxCalculation = (isAdd: boolean, rateOverride?: number) => {
-        saveSnapshot(); // Save before adding tax line
+        saveSnapshot(); 
 
         const rateToUse = rateOverride !== undefined ? rateOverride : taxRate;
         const baseVal = evaluateExpression(currentInput);
@@ -222,9 +256,11 @@ const App = () => {
             mode: 'GST',
             type: isAdd ? 'add' : 'remove',
             rate: rateToUse,
-            details: { base: baseVal, rate: rateToUse, taxAmt: taxAmount }
+            details: { base: baseVal, rate: rateToUse, taxAmt: taxAmount },
+            timestamp: Date.now()
         };
 
+        addToLog(newItem); 
         updateCurrentPageItems([...billItems, newItem]);
         setCurrentInput(''); 
         cursorPositionRef.current = 0;
@@ -234,52 +270,45 @@ const App = () => {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
-                saveSnapshot(); // Save before pasting
-                // Strip commas, currency symbols, and other non-math characters
-                // Preserves digits, decimals, operators, parentheses, %
+                saveSnapshot(); 
                 const sanitized = text.replace(/[^0-9.+\-*/()%]/g, '');
                 if (sanitized) insertAtCursor(sanitized);
             }
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     const handleInput = (value: string) => {
-        if (inputRef.current) inputRef.current.focus();
+        if (inputRef.current && isCalculatorPage) inputRef.current.focus();
 
         switch(value) {
             case 'CLEAR_ALL': 
-                saveSnapshot();
+                saveSnapshot(); // Recover page
                 updateCurrentPageItems([]); 
                 setCurrentInput(''); 
                 setActiveItemId(null); 
                 break;
             case 'CLEAR_LINE': 
-                saveSnapshot();
+                saveSnapshot(); // Recover line
                 if (currentInput) {
                     updateInput('', 0); 
                 } else if (billItems.length > 0) {
-                    // Remove the last line if current input is empty
                     updateCurrentPageItems(billItems.slice(0, -1));
                 }
                 break;
             case 'DELETE': 
-                // Only snapshot if there is something to delete
-                if (currentInput.length > 0) {
-                    saveSnapshot();
-                }
+                if (currentInput.length > 0) saveSnapshot(); // Recover digit
                 deleteAtCursor(); 
                 break;
             case 'NEXT_LINE':
                 if (activeItemId !== null) {
-                    // Finishing an edit
-                    saveSnapshot(); // Save edited state before deselecting
+                    saveSnapshot(); 
                     setActiveItemId(null); setCurrentInput(''); cursorPositionRef.current = 0;
                 } else if (currentInput) {
-                    saveSnapshot(); // Save state (input content) before moving to list
+                    saveSnapshot(); 
                     const result = evaluateExpression(currentInput);
-                    updateCurrentPageItems([...billItems, { id: Date.now(), expression: currentInput, result }]);
+                    const newItem: BillItem = { id: Date.now(), expression: currentInput, result, timestamp: Date.now() };
+                    addToLog(newItem); 
+                    updateCurrentPageItems([...billItems, newItem]);
                     setCurrentInput(''); cursorPositionRef.current = 0;
                 }
                 break;
@@ -294,17 +323,45 @@ const App = () => {
     };
 
     const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        if (distance > 50 && currentPage < pages.length - 1) { 
-            triggerHaptic();
-            setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c + 1); 
-        } else if (distance < -50 && currentPage > 0) { 
-            triggerHaptic();
-            setActiveItemId(null); setCurrentInput(''); setCurrentPage(c => c - 1); 
-        }
         setTouchStart(null);
         setTouchEnd(null);
+    };
+
+    const TabButton: React.FC<{ idx: number, label?: string, icon?: React.ElementType }> = ({ idx, label, icon: Icon }) => {
+        const style = PAGE_STYLES[idx % PAGE_STYLES.length];
+        const isActive = currentPage === idx;
+        
+        return (
+            <button
+                onClick={() => {
+                    triggerHaptic();
+                    handlePageSwitch(idx);
+                }}
+                className={`flex items-center justify-center w-full h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
+                    isActive
+                    ? `${themeMode === 'dark' ? `${style.darkBg} ${style.darkText} border-transparent` : `${style.bg} ${style.text} border-transparent`} shadow-sm scale-105 border` 
+                    : `${themeColors.tabInactive} ${themeMode === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200'} border`
+                }`}
+            >
+                {label ? label : (Icon && <Icon size={18} />)}
+            </button>
+        );
+    };
+
+    const SettingRow: React.FC<{ label: string, value: string, icon: React.ElementType, onClick: () => void }> = ({ label, value, icon: Icon, onClick }) => {
+        const valBg = themeMode === 'light' ? 'bg-slate-100 text-slate-700' : 'bg-zinc-800 text-zinc-300';
+        return (
+            <div 
+                onClick={() => { triggerHaptic(); onClick(); }}
+                className={`flex justify-between items-center border-b ${themeColors.itemBorder} py-3 px-4 cursor-pointer active:opacity-70 transition-opacity`}
+            >
+                <div className="flex items-center gap-3">
+                    <Icon size={20} className={themeColors.subText} />
+                    <span className={`${themeColors.text} font-medium`}>{label}</span>
+                </div>
+                <span className={`${valBg} font-bold opacity-100 px-2 py-1 rounded text-xs`}>{value}</span>
+            </div>
+        );
     };
 
     return (
@@ -313,84 +370,133 @@ const App = () => {
             <div className={`flex-1 flex flex-col overflow-hidden relative`}>
                 <div className={`flex flex-col flex-1 overflow-hidden`}>
                     
-                    {/* Tabbed Pages */}
+                    {/* Tab Navigation */}
                     <div className={`grid grid-cols-4 gap-2 p-2 border-b ${themeColors.border} ${themeColors.headerBg} min-h-[52px]`}>
-                            {pages.map((_, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => {
-                                    triggerHaptic();
-                                    setActiveItemId(null);
-                                    setCurrentInput('');
-                                    setCurrentPage(idx);
-                                }}
-                                className={`flex items-center justify-center w-full h-9 rounded-lg transition-all duration-200 font-bold text-sm ${
-                                    currentPage === idx 
-                                    ? `${PAGE_STYLES[idx % PAGE_STYLES.length].bg} ${PAGE_STYLES[idx % PAGE_STYLES.length].text} shadow-sm scale-105` 
-                                    : `bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50`
-                                }`}
-                            >
-                                {idx + 1}
-                            </button>
-                        ))}
+                        <TabButton idx={0} label="MASTER" />
+                        <TabButton idx={1} label="GST" />
+                        <TabButton idx={2} icon={History} />
+                        <TabButton idx={3} icon={Settings} />
                     </div>
 
-                    {/* List Area */}
-                    <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar`} 
+                    {/* Content Area */}
+                    <div className={`flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-0 flex flex-col no-scrollbar relative`} 
                             onTouchStart={(e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }} 
                             onTouchMove={(e) => setTouchEnd(e.targetTouches[0].clientX)} 
                             onTouchEnd={onTouchEnd}>
-                        {billItems.map((item) => (
-                            item.id === activeItemId ? 
-                            <ActiveLine key={item.id} currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} /> : 
-                            <CommittedLine key={item.id} item={item} onClick={handleLineClick} themeColors={themeColors} mode={item.mode} decimalConfig={decimalConfig} numberFormat={numberFormat} />
-                        ))}
-                        {activeItemId === null && <ActiveLine currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} />}
-                        {[...Array(emptyLines)].map((_, i) => (
-                            <div key={`empty-${i}`} className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-1.5 px-2 opacity-10`}>
-                                <div className="h-8 w-full" />
+                        
+                        {/* Calculator Pages */}
+                        {isCalculatorPage && (
+                            <>
+                                {billItems.map((item) => (
+                                    item.id === activeItemId ? 
+                                    <ActiveLine key={item.id} currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} /> : 
+                                    <CommittedLine key={item.id} item={item} onClick={handleLineClick} themeColors={themeColors} mode={item.mode} decimalConfig={decimalConfig} numberFormat={numberFormat} />
+                                ))}
+                                {activeItemId === null && <ActiveLine currentInput={currentInput} livePreview={livePreview} themeColors={themeColors} inputRef={inputRef} decimalConfig={decimalConfig} numberFormat={numberFormat} />}
+                                {[...Array(emptyLines)].map((_, i) => (
+                                    <div key={`empty-${i}`} className={`flex justify-between items-baseline border-b ${themeColors.itemBorder} py-1.5 px-2 opacity-10`}>
+                                        <div className="h-8 w-full" />
+                                    </div>
+                                ))}
+                                <div ref={listEndRef} />
+                            </>
+                        )}
+
+                        {/* History Page */}
+                        {currentPage === 2 && (
+                            <div className="flex flex-col min-h-full">
+                                {calculationLog.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-2 opacity-50 mt-20">
+                                        <History size={48} />
+                                        <span className="text-sm font-medium">Log Empty</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col pb-2">
+                                        {/* Removed Subheading here as requested */}
+                                        {calculationLog.map((item, index) => (
+                                            <CommittedLine 
+                                                key={item.id + '_' + index} 
+                                                item={item} 
+                                                onClick={handleLineClick} 
+                                                themeColors={themeColors} 
+                                                mode={item.mode} 
+                                                decimalConfig={decimalConfig} 
+                                                numberFormat={numberFormat} 
+                                            />
+                                        ))}
+                                        <div ref={logEndRef} />
+                                    </div>
+                                )}
                             </div>
-                        ))}
-                        <div ref={listEndRef} />
+                        )}
+
+                        {/* Settings Page */}
+                        {currentPage === 3 && (
+                            <div className="flex flex-col pt-2">
+                                <SettingRow 
+                                    label="Theme" 
+                                    value={themeMode === 'light' ? 'Light' : 'Dark'} 
+                                    icon={themeMode === 'light' ? Sun : Moon}
+                                    onClick={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')} 
+                                />
+                                <SettingRow 
+                                    label="Number System" 
+                                    value={numberFormat === 'IN' ? 'Indian (Lakhs)' : 'International (Millions)'} 
+                                    icon={Globe}
+                                    onClick={() => setNumberFormat(prev => prev === 'IN' ? 'INTL' : 'IN')} 
+                                />
+                                <SettingRow 
+                                    label="Button Labels" 
+                                    value={showLabels ? 'Show' : 'Hide'} 
+                                    icon={Tag}
+                                    onClick={() => setShowLabels(!showLabels)} 
+                                />
+                                <div className={`px-4 mt-8 text-[10px] ${themeColors.subText} text-center opacity-40`}>
+                                    GANAKA v1.1.0
+                                </div>
+                            </div>
+                        )}
                     </div>
                     
-                    {/* Total Bar with Floating Toggle */}
-                    <div className={`relative flex items-center justify-between py-1.5 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
-                        <button 
-                            onClick={() => {
-                                triggerHaptic();
-                                setIsKeypadExpanded(!isKeypadExpanded);
-                            }}
-                            className={`absolute left-1/2 -translate-x-1/2 -top-5 w-14 h-6 flex items-center justify-center 
-                                        bg-white border border-b-0 ${themeColors.border} rounded-t-lg shadow-sm 
-                                        text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors z-20`}
-                            aria-label={isKeypadExpanded ? "Minimize keypad" : "Expand keypad"}
-                        >
-                            {isKeypadExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
-                        </button>
-                        <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.subText}`}>TOTAL =</span>
-                        <button 
-                            onClick={() => {
-                                triggerHaptic();
-                                copyToClipboard(formatNumber(grandTotal, decimalConfig, numberFormat));
-                            }}
-                            className={`text-2xl font-bold ${themeColors.text} active:scale-95 transition-transform`}
-                        >
-                            {formatNumber(grandTotal, decimalConfig, numberFormat)}
-                        </button>
-                    </div>
+                    {/* Total Bar with Floating Toggle - Only show on calculator pages */}
+                    {isCalculatorPage && (
+                        <div className={`relative flex items-center justify-between py-1.5 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10`}>
+                            <button 
+                                onClick={() => {
+                                    triggerHaptic();
+                                    setIsKeypadExpanded(!isKeypadExpanded);
+                                }}
+                                className={`absolute left-1/2 -translate-x-1/2 -top-5 w-14 h-6 flex items-center justify-center 
+                                            ${themeMode === 'dark' ? 'bg-zinc-800 text-zinc-400 border-zinc-700' : 'bg-white text-slate-400 border-slate-100'} 
+                                            border border-b-0 rounded-t-lg shadow-sm transition-colors z-20`}
+                                aria-label={isKeypadExpanded ? "Minimize keypad" : "Expand keypad"}
+                            >
+                                {isKeypadExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
+                            </button>
+                            <span className={`text-xl font-bold uppercase tracking-wider ${themeColors.subText}`}>TOTAL =</span>
+                            <button 
+                                onClick={() => {
+                                    triggerHaptic();
+                                    copyToClipboard(formatNumber(grandTotal, decimalConfig, numberFormat));
+                                }}
+                                className={`text-2xl font-bold ${themeColors.text} active:scale-95 transition-transform`}
+                            >
+                                {formatNumber(grandTotal, decimalConfig, numberFormat)}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* --- Keypad --- */}
-            {isKeypadExpanded && (
+            {isKeypadExpanded && isCalculatorPage && (
                 <div className={`${themeColors.keypadBg} flex flex-col border-t ${themeColors.border} transition-colors duration-300`}>
                     <div className="p-3 pt-3 grid grid-cols-4 gap-2 pb-6 animate-in slide-in-from-bottom-2 duration-200">
                         {/* Row 1 */}
-                        <Button icon={RefreshCw} label={<BtnLabel text="RESET" />} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
-                        <Button icon={ChevronsLeft} label={<BtnLabel text="CLEAR" />} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
-                        <Button icon={ChevronLeft} label={<BtnLabel text="DELETE" />} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
-                        <Button icon={CornerDownLeft} label={<BtnLabel text="ENTER" />} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
+                        <Button icon={RefreshCw} label={showLabels ? <BtnLabel text="RESET" /> : undefined} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                        <Button icon={ChevronsLeft} label={showLabels ? <BtnLabel text="CLEAR" /> : undefined} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
+                        <Button icon={ChevronLeft} label={showLabels ? <BtnLabel text="DELETE" /> : undefined} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
+                        <Button icon={CornerDownLeft} label={showLabels ? <BtnLabel text="ENTER" /> : undefined} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
 
                         {/* Row 2: Mode Specific */}
                         {isGstMode ? (
@@ -416,12 +522,12 @@ const App = () => {
                                 
                                 <Button 
                                     icon={Undo2}
-                                    label={<BtnLabel text="UNDO" />} 
+                                    label={showLabels ? <BtnLabel text="UNDO" /> : undefined}
                                     onClick={handleUndo} 
                                     className={`bg-slate-200 text-black active:bg-slate-300 font-bold ${history.length === 0 ? 'opacity-40' : ''}`} 
                                 />
 
-                                <Button icon={Clipboard} label={<BtnLabel text="PASTE" />} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
+                                <Button icon={Clipboard} label={showLabels ? <BtnLabel text="PASTE" /> : undefined} onClick={handlePaste} className="bg-lime-200 text-black active:bg-lime-300 font-bold" />
                             </>
                         )}
                         
@@ -450,9 +556,9 @@ const App = () => {
                         
                         {/* Row 6 */}
                         <Button 
-                            label={<LabelText top={isGstMode ? "GST" : "MASTER"} bottom="MODE" />} 
-                            onClick={() => { triggerHaptic(); setIsGstMode(!isGstMode); }} 
-                            className={`${isGstMode ? 'bg-green-100 text-green-900 ring-1 ring-green-200' : 'bg-gray-100 text-gray-900 ring-1 ring-gray-200'} active:scale-95 transition-all`} 
+                            label={<span className="font-black text-xs tracking-widest text-gray-400">GANAKA</span>} 
+                            onClick={() => {}} 
+                            className="bg-gray-50 border border-gray-100 shadow-none pointer-events-none" 
                         />
                         <Button label="0" onClick={() => handleInput('0')} className="bg-white text-black shadow-sm active:bg-gray-100" />
                         <Button label="." onClick={() => handleInput('.')} className="bg-white text-black shadow-sm active:bg-gray-100 font-bold text-xl" />

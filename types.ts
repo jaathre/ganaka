@@ -23,6 +23,7 @@ export interface BillItem {
         rate: number;
         taxAmt: number;
     } | null;
+    timestamp?: number;
 }
 
 export interface ThemeColors {
@@ -42,10 +43,10 @@ export interface ThemeColors {
     menuItemHover: string;
     menuItemActive: string;
     activeLineBg: string;
-    displayBorder: string; // New field for the high-contrast display frame
+    displayBorder: string;
 }
 
-export type ThemeName = 'light';
+export type ThemeName = 'light' | 'dark';
 
 export type DecimalConfig = 'auto' | number;
 
