@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
     RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
     ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses,
-    History, Settings, Moon, Sun, Globe, Hash, Tag, Percent, RotateCcw
+    History, Settings, Moon, Sun, Globe, Hash, Tag, Percent, RotateCcw, Trash2
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -498,6 +498,26 @@ const App = () => {
                                 className={`text-2xl font-bold ${themeColors.text} active:scale-95 transition-transform`}
                             >
                                 {formatNumber(grandTotal, decimalConfig, numberFormat)}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* History Clear Bar - Only show on History page when not empty */}
+                    {currentPage === 2 && calculationLog.length > 0 && (
+                        <div className={`relative flex items-center justify-center py-2 px-4 border-t ${themeColors.border} ${themeColors.totalBarBg} z-10 animate-in slide-in-from-bottom-2 duration-200`}>
+                            <button 
+                                onClick={() => {
+                                    triggerHaptic();
+                                    if(window.confirm("Are you sure you want to clear the history?")) {
+                                        setCalculationLog([]);
+                                    }
+                                }}
+                                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg font-bold text-sm 
+                                    ${themeMode === 'light' ? 'bg-rose-100 text-rose-700 active:bg-rose-200' : 'bg-rose-900/40 text-rose-300 active:bg-rose-900/60'} 
+                                    transition-all active:scale-95`}
+                            >
+                                <Trash2 size={18} />
+                                <span>CLEAR LOG</span>
                             </button>
                         </div>
                     )}
