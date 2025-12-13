@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
-    RefreshCw, ChevronsLeft, ChevronLeft, CornerDownLeft, 
+    ChevronsLeft, ChevronLeft, CornerDownLeft, 
     ChevronDown, ChevronUp, Clipboard, Undo2, Parentheses,
     History, Settings, Moon, Sun, Globe, Hash, Tag, Percent, RotateCcw, Trash2
 } from 'lucide-react';
@@ -78,7 +78,7 @@ const App = () => {
     const [availableRates, setAvailableRates] = useState([5, 18, 40]); 
     const [decimalConfig, ] = useState<DecimalConfig>(2); 
     const [numberFormat, setNumberFormat] = useState<NumberFormat>('IN'); 
-    const [showLabels, setShowLabels] = useState(true);
+    const [showLabels, setShowLabels] = useState(false);
 
     // UI State
     const [isKeypadExpanded, setIsKeypadExpanded] = useState(true);
@@ -384,9 +384,9 @@ const App = () => {
                     
                     {/* Tab Navigation */}
                     <div className={`grid grid-cols-4 gap-2 p-2 border-b ${themeColors.border} ${themeColors.headerBg} min-h-[52px]`}>
+                        <TabButton idx={2} icon={History} />
                         <TabButton idx={0} label="MASTER" />
                         <TabButton idx={1} label="GST" />
-                        <TabButton idx={2} icon={History} />
                         <TabButton idx={3} icon={Settings} />
                     </div>
 
@@ -443,18 +443,6 @@ const App = () => {
                         {currentPage === 3 && (
                             <div className="flex flex-col pt-2">
                                 <SettingRow 
-                                    label="Theme" 
-                                    value={themeMode === 'light' ? 'Light' : 'Dark'} 
-                                    icon={themeMode === 'light' ? Sun : Moon}
-                                    onClick={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')} 
-                                />
-                                <SettingRow 
-                                    label="Number System" 
-                                    value={numberFormat === 'IN' ? 'Indian (Lakhs)' : 'International (Millions)'} 
-                                    icon={Globe}
-                                    onClick={() => setNumberFormat(prev => prev === 'IN' ? 'INTL' : 'IN')} 
-                                />
-                                <SettingRow 
                                     label="Button Labels" 
                                     value={showLabels ? 'Show' : 'Hide'} 
                                     icon={Tag}
@@ -465,6 +453,18 @@ const App = () => {
                                     value={`${availableRates.join('%, ')}%`}
                                     icon={Percent}
                                     onClick={openTaxModal}
+                                />
+                                <SettingRow 
+                                    label="Number System" 
+                                    value={numberFormat === 'IN' ? 'Indian (Lakhs)' : 'International (Millions)'} 
+                                    icon={Globe}
+                                    onClick={() => setNumberFormat(prev => prev === 'IN' ? 'INTL' : 'IN')} 
+                                />
+                                <SettingRow 
+                                    label="Theme" 
+                                    value={themeMode === 'light' ? 'Light' : 'Dark'} 
+                                    icon={themeMode === 'light' ? Sun : Moon}
+                                    onClick={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')} 
                                 />
 
                                 <div className={`px-4 mt-8 text-[10px] ${themeColors.subText} text-center opacity-40`}>
@@ -572,7 +572,7 @@ const App = () => {
                 <div className={`${themeColors.keypadBg} flex flex-col border-t ${themeColors.border} transition-colors duration-300`}>
                     <div className="p-3 pt-3 grid grid-cols-4 gap-2 pb-6 animate-in slide-in-from-bottom-2 duration-200">
                         {/* Row 1 */}
-                        <Button icon={RefreshCw} label={showLabels ? <BtnLabel text="RESET" /> : undefined} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
+                        <Button icon={Trash2} label={showLabels ? <BtnLabel text="RESET" /> : undefined} onClick={() => handleInput('CLEAR_ALL')} className="bg-rose-300 text-black active:bg-rose-400" />
                         <Button icon={ChevronsLeft} label={showLabels ? <BtnLabel text="CLEAR" /> : undefined} onClick={() => handleInput('CLEAR_LINE')} className="bg-orange-200 text-black active:bg-orange-300" />
                         <Button icon={ChevronLeft} label={showLabels ? <BtnLabel text="DELETE" /> : undefined} onClick={() => handleInput('DELETE')} className="bg-amber-200 text-black active:bg-amber-300" />
                         <Button icon={CornerDownLeft} label={showLabels ? <BtnLabel text="ENTER" /> : undefined} onClick={() => handleInput('NEXT_LINE')} className="bg-emerald-300 text-black active:bg-emerald-400" />
